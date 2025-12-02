@@ -304,29 +304,15 @@ class ApplyAIAssistant {
     `;
     button.title = 'Anschreiben mit AI generieren';
     
-    // Erstelle Feuer-Partikel Container
+    // Erstelle Feuer-Container mit mehreren Schichten (CSS Only Fire)
     const fireContainer = document.createElement('div');
-    fireContainer.className = 'fire-particles';
+    fireContainer.className = 'fire-container';
     
-    // Erstelle 200 Feuer-Partikel
-    for (let i = 0; i < 200; i++) {
-      const ball = document.createElement('div');
-      ball.className = 'fire-ball';
-      
-      // Zufällige Größe zwischen 5-20px
-      const size = Math.random() * 15 + 5;
-      ball.style.width = `${size}px`;
-      ball.style.height = `${size}px`;
-      
-      // Zufällige Position (-40px bis +30px von center)
-      const leftOffset = Math.random() * 70 - 40;
-      ball.style.left = `calc(50% + ${leftOffset}px)`;
-      
-      // Zufällige Animation-Delay (-3s bis 0s)
-      const delay = -(Math.random() * 3000) / 1000;
-      ball.style.animation = `movetop 1s linear ${delay}s infinite`;
-      
-      fireContainer.appendChild(ball);
+    // Erstelle 3 Fire-Layer für realistischeres Feuer
+    for (let i = 0; i < 3; i++) {
+      const layer = document.createElement('div');
+      layer.className = 'fire-layer';
+      fireContainer.appendChild(layer);
     }
     
     button.appendChild(fireContainer);
