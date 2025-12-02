@@ -83,8 +83,8 @@ class ApplyAIAssistant {
   }
 
   private checkAndCreateButtonInProjectShow(): void {
-    // Prüfe ob Floating Button bereits existiert
-    if (document.getElementById('apply-ai-floating-btn')) {
+    // Prüfe ob Button bereits existiert
+    if (document.getElementById('apply-ai-generate-btn-form')) {
       return;
     }
 
@@ -94,13 +94,10 @@ class ApplyAIAssistant {
     }
 
     this.isCreatingButton = true;
-    Logger.info('Erstelle ApplyAI Buttons auf Projektdetailseite');
+    Logger.info('Erstelle ApplyAI Button auf Projektdetailseite');
     
     try {
-      // Erstelle Floating Button
-      this.createFloatingButton();
-      
-      // Erstelle auch Button im Formular (neben "Text generieren")
+      // Erstelle Button im Formular (neben "Text generieren")
       this.createButtonInProjectForm();
     } finally {
       setTimeout(() => {
@@ -185,128 +182,6 @@ class ApplyAIAssistant {
     Logger.info('ApplyAI Button neben "Text generieren" Button platziert');
   }
 
-  private createFloatingButton(): void {
-    // Erstelle Floating Action Button außerhalb des React-Baums
-    const floatingButton = document.createElement('button');
-    floatingButton.id = 'apply-ai-floating-btn';
-    floatingButton.type = 'button';
-    floatingButton.className = 'apply-ai-floating-button';
-    floatingButton.innerHTML = `
-      <i class="far fa-gem"></i>
-      <span>ApplyAI</span>
-    `;
-    floatingButton.title = 'Anschreiben mit AI generieren';
-    
-    floatingButton.addEventListener('click', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      Logger.info('Floating Button geklickt - prüfe Formular');
-      
-      // Zeige Loading-State
-      const originalHTML = floatingButton.innerHTML;
-      floatingButton.innerHTML = `
-        <i class="far fa-spinner fa-spin"></i>
-        <span>Generiere...</span>
-      `;
-      floatingButton.style.pointerEvents = 'none';
-      
-      try {
-        // Prüfe ob Anschreiben-Feld bereits auf der Seite ist (Projektdetailseite)
-        const coverLetterField = document.getElementById('cover-letter') as HTMLTextAreaElement;
-        
-        if (coverLetterField && coverLetterField.offsetParent !== null) {
-          // Formular ist bereits sichtbar auf der Seite
-          Logger.info('Formular ist bereits sichtbar, starte direkt Generierung');
-          
-          // Scrolle zum Formular
-          coverLetterField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          
-          // Warte kurz für Scroll-Animation
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Starte Generierung direkt
-          const controller = new ApplicationController();
-          await controller.generateAndInsertApplication();
-          
-          Logger.info('Generierung erfolgreich');
-          
-          // Erfolg anzeigen
-          floatingButton.innerHTML = `
-            <i class="far fa-check"></i>
-            <span>Generiert!</span>
-          `;
-          
-          setTimeout(() => {
-            floatingButton.innerHTML = originalHTML;
-            floatingButton.style.pointerEvents = 'auto';
-          }, 2000);
-          
-        } else {
-          // Formular nicht sichtbar, versuche Modal zu öffnen
-          Logger.info('Formular nicht sichtbar, öffne Modal');
-          
-          const contactButton = document.querySelector('[data-testid="contact-button"]') as HTMLElement;
-          if (!contactButton) {
-            throw new Error('Bewerben-Button nicht gefunden');
-          }
-          
-          contactButton.click();
-          Logger.info('Bewerben-Button geklickt');
-          
-          // Warte auf Modal
-          let attempts = 0;
-          const maxAttempts = 50;
-          
-          const checkModal = setInterval(async () => {
-            attempts++;
-            
-            const modal = document.querySelector('.modal.search-result-modal.show') as HTMLElement;
-            const modalCoverLetterField = document.getElementById('cover-letter') as HTMLTextAreaElement;
-            
-            if (modal && modalCoverLetterField && modal.contains(modalCoverLetterField)) {
-              clearInterval(checkModal);
-              Logger.info('Modal geöffnet, starte Generierung');
-              
-              await new Promise(resolve => setTimeout(resolve, 800));
-              
-              const modalApplyAIButton = document.getElementById('apply-ai-generate-btn');
-              if (modalApplyAIButton) {
-                Logger.info('Klicke auf ApplyAI Button im Modal');
-                (modalApplyAIButton as HTMLElement).click();
-              } else {
-                Logger.warn('ApplyAI Button im Modal nicht gefunden, starte direkt');
-                const controller = new ApplicationController();
-                await controller.generateAndInsertApplication();
-              }
-              
-              floatingButton.innerHTML = originalHTML;
-              floatingButton.style.pointerEvents = 'auto';
-              
-            } else if (attempts >= maxAttempts) {
-              clearInterval(checkModal);
-              throw new Error('Timeout: Modal konnte nicht geöffnet werden');
-            }
-          }, 100);
-        }
-        
-      } catch (error) {
-        Logger.error('Fehler:', error);
-        floatingButton.innerHTML = `
-          <i class="far fa-exclamation-triangle"></i>
-          <span>Fehler</span>
-        `;
-        setTimeout(() => {
-          floatingButton.innerHTML = originalHTML;
-          floatingButton.style.pointerEvents = 'auto';
-        }, 3000);
-      }
-    });
-
-    // Füge Button direkt zu body hinzu (außerhalb React-Baum)
-    document.body.appendChild(floatingButton);
-    Logger.info('ApplyAI Floating Button erstellt (außerhalb React-DOM)');
-  }
 
   private createGenerateButton(): void {
     const textarea = DOMService.getCoverLetterField();
@@ -375,12 +250,6 @@ class ApplyAIAssistant {
     if (button) {
       button.remove();
       this.generateButton = null;
-    }
-    
-    // Entferne auch Floating Button
-    const floatingButton = document.getElementById('apply-ai-floating-btn');
-    if (floatingButton) {
-      floatingButton.remove();
     }
     
     // Entferne auch Form Button
