@@ -106,10 +106,6 @@ class ApplyAIAssistant {
   }
 
   private createFloatingButton(): void {
-    // Versuche zuerst, Button neben "Bewerben" Button zu platzieren
-    const contactButton = document.querySelector('[data-testid="contact-button"]') as HTMLElement;
-    const projectHeaderButtons = document.querySelector('.project-header-buttons') as HTMLElement;
-    
     // Erstelle Floating Action Button außerhalb des React-Baums
     const floatingButton = document.createElement('button');
     floatingButton.id = 'apply-ai-floating-btn';
@@ -126,6 +122,7 @@ class ApplyAIAssistant {
       e.stopPropagation();
       
       // Klicke auf "Bewerben" Button um Modal zu öffnen
+      const contactButton = document.querySelector('[data-testid="contact-button"]') as HTMLElement;
       if (contactButton) {
         contactButton.click();
         
@@ -153,21 +150,10 @@ class ApplyAIAssistant {
       }
     });
 
-    // Versuche Button neben "Bewerben" Button zu platzieren
-    if (projectHeaderButtons && contactButton) {
-      try {
-        // Füge Button in den Button-Container ein (nach "Bewerben")
-        contactButton.insertAdjacentElement('afterend', floatingButton);
-        Logger.info('ApplyAI Button neben "Bewerben" Button platziert');
-      } catch (error) {
-        // Fallback: Füge als Floating Button hinzu
-        Logger.warn('Konnte Button nicht neben "Bewerben" platzieren, verwende Floating Button');
-        document.body.appendChild(floatingButton);
-      }
-    } else {
-      // Fallback: Füge als Floating Button hinzu
-      document.body.appendChild(floatingButton);
-    }
+    // Füge Button direkt zu body hinzu (außerhalb React-Baum)
+    // NIEMALS in React-verwaltete Container einfügen!
+    document.body.appendChild(floatingButton);
+    Logger.info('ApplyAI Floating Button erstellt (außerhalb React-DOM)');
   }
 
   private createGenerateButton(): void {
