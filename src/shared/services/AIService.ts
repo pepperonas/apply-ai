@@ -7,10 +7,14 @@ import { UserProfile } from '../models/UserProfile';
 export abstract class AIService {
   protected apiKey: string;
   protected model: string;
+  protected maxTokens?: number;
+  protected temperature?: number;
 
-  constructor(apiKey: string, model: string) {
+  constructor(apiKey: string, model: string, maxTokens?: number, temperature?: number) {
     this.apiKey = apiKey;
     this.model = model;
+    this.maxTokens = maxTokens;
+    this.temperature = temperature;
   }
 
   /**
@@ -23,6 +27,13 @@ export abstract class AIService {
     project: Project,
     userProfile: UserProfile
   ): Promise<string>;
+
+  /**
+   * Generiert Text basierend auf einem Prompt (für allgemeine Zwecke)
+   * @param prompt Der Prompt
+   * @returns Promise mit generiertem Text
+   */
+  abstract generateText(prompt: string): Promise<string>;
 
   /**
    * Validiert die API-Verbindung

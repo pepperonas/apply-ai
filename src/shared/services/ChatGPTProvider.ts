@@ -58,6 +58,43 @@ export class ChatGPTProvider extends AIService {
     }
   }
 
+  async generateText(prompt: string): Promise<string> {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: this.maxTokens,
+          temperature: this.temperature
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`ChatGPT API Error: ${response.status} - ${JSON.stringify(errorData)}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error('Ungültige API-Antwort: Keine Nachricht gefunden');
+      }
+
+      return data.choices[0].message.content;
+
+    } catch (error) {
+      Logger.error('ChatGPT API Error:', error);
+      throw new Error('Fehler bei der Generierung mit ChatGPT');
+    }
+  }
+
   async validateApiKey(): Promise<boolean> {
     try {
       const response = await fetch('https://api.openai.com/v1/models', {

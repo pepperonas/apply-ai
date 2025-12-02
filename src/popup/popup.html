@@ -128,6 +128,71 @@
           <small class="form-hint">Verfügbare Platzhalter: {title}, {price}, {discounted_price}, {seller}, {location}</small>
         </div>
       </section>
+
+      <!-- Verkäufer-Einstellungen (für Beschreibungs-Optimierung) -->
+      <section class="settings-section">
+        <h2>Verkäufer-Einstellungen</h2>
+        <p class="section-description">
+          Diese Daten werden für die automatische Optimierung deiner Inserat-Beschreibungen verwendet.
+        </p>
+
+        <div class="form-group">
+          <label for="seller-name">Name</label>
+          <input type="text" id="seller-name" placeholder="Max Mustermann">
+        </div>
+
+        <div class="form-group">
+          <label for="seller-street">Straße & Hausnummer</label>
+          <input type="text" id="seller-street" placeholder="Musterstraße 123">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="seller-postal">PLZ</label>
+            <input type="text" id="seller-postal" placeholder="12345">
+          </div>
+          <div class="form-group">
+            <label for="seller-city">Stadt</label>
+            <input type="text" id="seller-city" placeholder="Berlin">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="seller-phone">Telefon (optional)</label>
+          <input type="tel" id="seller-phone" placeholder="+49 123 456789">
+        </div>
+
+        <div class="form-group">
+          <label>Versandoptionen</label>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="shipping-pickup" checked>
+              <span>Abholung möglich</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="shipping-delivery">
+              <span>Versand möglich</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="shipping-cost-group" style="display: none;">
+          <label for="shipping-cost">Versandkosten (€)</label>
+          <input type="number" id="shipping-cost" placeholder="5.99" min="0" step="0.01">
+          <small class="form-hint">Optional: Versandkosten in Euro</small>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="warranty-disclaimer" checked>
+            <span>Gewährleistungsausschluss hinzufügen</span>
+          </label>
+          <small class="form-hint">
+            Fügt automatisch einen rechtssicheren Hinweis zum Privatverkauf hinzu:
+            <br><em>"Da ich privat verkaufe, kann ich leider keine Garantie oder Rücknahme anbieten."</em>
+          </small>
+        </div>
+      </section>
       
       <!-- Generierungs-Logs -->
       <section class="settings-section">

@@ -1,4 +1,5 @@
 import { KleinanzeigenProduct } from '../models/KleinanzeigenProduct';
+import { AdData } from '../models/SellerSettings';
 import { Logger } from '../../../shared/utils/logger';
 
 /**
@@ -11,6 +12,15 @@ export class KleinanzeigenDOMService {
   static isProductPage(): boolean {
     return window.location.hostname.includes('kleinanzeigen.de') &&
            window.location.pathname.includes('/s-anzeige/');
+  }
+
+  /**
+   * Prüft ob wir auf der Inserat-Erstellen-Seite sind
+   */
+  static isPostAdPage(): boolean {
+    return window.location.hostname.includes('kleinanzeigen.de') &&
+           (window.location.pathname.includes('/p-anzeige-aufgeben') ||
+            window.location.pathname.includes('/m-meine-anzeigen-aufgeben'));
   }
 
   /**
@@ -171,6 +181,89 @@ export class KleinanzeigenDOMService {
     Logger.info('[Kleinanzeigen] Contact button clicked');
 
     return await this.waitForModal();
+  }
+
+  /**
+   * Extrahiert Inserat-Daten vom Formular (Post-Ad-Seite)
+   */
+  static extractAdDataFromForm(): AdData | null {
+    try {
+      const titleInput = document.querySelector('#postad-title') as HTMLInputElement;
+      const descriptionTextarea = document.querySelector('#pstad-descrptn') as HTMLTextAreaElement;
+      const priceInput = document.querySelector('#micro-frontend-price, #pstad-price') as HTMLInputElement;
+      const categoryPath = document.querySelector('#postad-category-path')?.textContent?.trim();
+
+      if (!titleInput || !descriptionTextarea) {
+        Logger.warn('[Kleinanzeigen] Formular-Felder nicht gefunden');
+        return null;
+      }
+
+      const title = titleInput.value.trim();
+      const description = descriptionTextarea.value.trim();
+      const priceText = priceInput?.value || '0';
+      const price = parseFloat(priceText.replace(',', '.')) || 0;
+
+      Logger.info('[Kleinanzeigen] Inserat-Daten extrahiert:', {
+        title,
+        descriptionLength: description.length,
+        price,
+        category: categoryPath
+      });
+
+      return {
+        title,
+        description,
+        price,
+        category: categoryPath || 'Unbekannt'
+      };
+    } catch (error) {
+      Logger.error('[Kleinanzeigen] Error extracting ad data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fügt optimierte Beschreibung ins Formular ein
+   */
+  static insertOptimizedDescription(description: string): boolean {
+    const textarea = document.querySelector('#pstad-descrptn') as HTMLTextAreaElement;
+    if (!textarea) {
+      Logger.error('[Kleinanzeigen] Description textarea not found');
+      return false;
+    }
+
+    try {
+      // React-kompatible Einfügung
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement.prototype,
+        'value'
+      )?.set;
+
+      if (nativeInputValueSetter) {
+        nativeInputValueSetter.call(textarea, description);
+      } else {
+        textarea.value = description;
+      }
+
+      // Events triggern
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.dispatchEvent(new Event('change', { bubbles: true }));
+      textarea.focus();
+
+      Logger.info('[Kleinanzeigen] Optimized description inserted');
+      return true;
+    } catch (error) {
+      Logger.error('[Kleinanzeigen] Error inserting description:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Findet den Container für den Optimierungs-Button
+   */
+  static getDescriptionOptimizeButtonContainer(): HTMLElement | null {
+    const descriptionGroup = document.querySelector('#pstad-descrptn')?.closest('.formgroup');
+    return descriptionGroup?.querySelector('.formgroup-label--unpadded') as HTMLElement;
   }
 }
 

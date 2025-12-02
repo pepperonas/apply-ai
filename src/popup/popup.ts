@@ -22,6 +22,7 @@ class PopupController {
     await this.loadSettings();
     await this.loadLogStats();
     await KleinanzeigenPopupExtension.loadKleinanzeigenSettings();
+    await KleinanzeigenPopupExtension.loadSellerSettings();
     this.attachEventListeners();
     KleinanzeigenPopupExtension.attachEventListeners();
   }
@@ -378,6 +379,9 @@ class PopupController {
 
       // Speichere Kleinanzeigen-Einstellungen
       await KleinanzeigenPopupExtension.saveKleinanzeigenSettings();
+      
+      // Speichere Verkäufer-Einstellungen
+      await KleinanzeigenPopupExtension.saveSellerSettings();
 
       // Aktualisiere den Active-Badge
       this.updateActiveBadge(this.currentProvider);
@@ -412,6 +416,9 @@ class PopupController {
 
       // Reset Kleinanzeigen-Einstellungen
       await KleinanzeigenPopupExtension.resetKleinanzeigenSettings();
+      
+      // Reset Verkäufer-Einstellungen
+      await KleinanzeigenPopupExtension.resetSellerSettings();
 
       this.showStatus('Einstellungen zurückgesetzt', 'success');
     }

@@ -1,14 +1,17 @@
 import { KleinanzeigenDOMService } from './services/KleinanzeigenDOMService';
 import { MessageGenerator } from './services/MessageGenerator';
+import { DescriptionOptimizer } from './services/DescriptionOptimizer';
 import { StorageService } from '../../shared/services/StorageService';
 import { Logger } from '../../shared/utils/logger';
 import { KleinanzeigenSettings } from './models/KleinanzeigenProduct';
+import { SellerSettings } from './models/SellerSettings';
 
 /**
  * Content Script für Kleinanzeigen.de
  */
 class KleinanzeigenContentScript {
   private button: HTMLElement | null = null;
+  private optimizeButton: HTMLElement | null = null;
   private isProcessing = false;
 
   constructor() {
@@ -22,18 +25,26 @@ class KleinanzeigenContentScript {
       return; // Kein Log, da wir auf FreelancerMap sein könnten
     }
 
-    Logger.info('[Kleinanzeigen] Checking if product page...', {
+    Logger.info('[Kleinanzeigen] Checking page type...', {
       hostname: window.location.hostname,
       pathname: window.location.pathname
     });
     
-    if (!KleinanzeigenDOMService.isProductPage()) {
-      Logger.info('[Kleinanzeigen] Not a product page');
+    // Produktseite: Kaufanfrage-Button
+    if (KleinanzeigenDOMService.isProductPage()) {
+      Logger.info('[Kleinanzeigen] Product page detected! Creating purchase button...');
+      this.createButton();
       return;
     }
 
-    Logger.info('[Kleinanzeigen] Product page detected! Creating button...');
-    this.createButton();
+    // Inserat-Erstellen-Seite: Beschreibungs-Optimierungs-Button
+    if (KleinanzeigenDOMService.isPostAdPage()) {
+      Logger.info('[Kleinanzeigen] Post-Ad page detected! Creating optimize button...');
+      this.createOptimizeButton();
+      return;
+    }
+
+    Logger.info('[Kleinanzeigen] Not a relevant page');
   }
 
   /**
@@ -221,6 +232,154 @@ class KleinanzeigenContentScript {
             this.button.style.pointerEvents = 'auto';
             this.button.style.backgroundColor = '';
             this.button.title = 'Automatische Kaufanfrage mit Preisvorschlag';
+          }
+          this.isProcessing = false;
+        }, 3000);
+      }
+    }
+  }
+
+  /**
+   * Erstellt den "Beschreibung optimieren" Button auf der Inserat-Seite
+   */
+  private createOptimizeButton(): void {
+    // Warte bis Seite geladen ist
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => this.createOptimizeButton());
+      return;
+    }
+
+    // Prüfe ob Button bereits existiert
+    if (document.getElementById('kleinanzeigen-optimize-btn')) {
+      Logger.info('[Kleinanzeigen] Optimize button already exists');
+      return;
+    }
+
+    // Warte kurz, bis React das Formular gerendert hat
+    setTimeout(() => {
+      const labelContainer = KleinanzeigenDOMService.getDescriptionOptimizeButtonContainer();
+      if (!labelContainer) {
+        Logger.warn('[Kleinanzeigen] Description label not found, retrying...');
+        setTimeout(() => this.createOptimizeButton(), 1000);
+        return;
+      }
+
+      // Erstelle Button
+      const button = document.createElement('button');
+      button.id = 'kleinanzeigen-optimize-btn';
+      button.type = 'button';
+      button.className = 'button button-secondary';
+      button.style.marginLeft = '12px';
+      button.style.verticalAlign = 'middle';
+      button.innerHTML = `
+        <i class="icon icon-gem"></i>
+        <span>Mit AI optimieren</span>
+      `;
+      button.title = 'Beschreibung mit KI optimieren';
+
+      button.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        await this.handleOptimizeClick();
+      });
+
+      // Füge Button neben dem Label ein
+      labelContainer.appendChild(button);
+      this.optimizeButton = button;
+
+      Logger.info('[Kleinanzeigen] Optimize button created');
+    }, 500);
+  }
+
+  /**
+   * Behandelt Klick auf "Beschreibung optimieren"
+   */
+  private async handleOptimizeClick(): Promise<void> {
+    if (this.isProcessing || !this.optimizeButton) return;
+
+    this.isProcessing = true;
+    const originalHTML = this.optimizeButton.innerHTML;
+
+    try {
+      // Loading State
+      this.optimizeButton.innerHTML = `
+        <i class="icon icon-spinner fa-spin"></i>
+        <span>Optimiere...</span>
+      `;
+      this.optimizeButton.style.pointerEvents = 'none';
+
+      // Extrahiere Inserat-Daten
+      const adData = KleinanzeigenDOMService.extractAdDataFromForm();
+      if (!adData || !adData.description) {
+        throw new Error('Bitte fülle zuerst Titel und Beschreibung aus.');
+      }
+
+      Logger.info('[Kleinanzeigen] Ad data extracted:', adData);
+
+      // Lade Verkäufer-Einstellungen
+      const sellerSettings = await StorageService.load<SellerSettings>('seller_settings');
+      if (!sellerSettings || !sellerSettings.name) {
+        throw new Error('Bitte konfiguriere zuerst deine Verkäufer-Daten in den Einstellungen (Extension-Icon klicken).');
+      }
+
+      Logger.info('[Kleinanzeigen] Seller settings loaded');
+
+      // Optimiere Beschreibung
+      this.optimizeButton.innerHTML = `
+        <i class="icon icon-spinner fa-spin"></i>
+        <span>KI arbeitet...</span>
+      `;
+
+      const optimizedDescription = await DescriptionOptimizer.optimizeDescription(adData, sellerSettings);
+
+      Logger.info('[Kleinanzeigen] Description optimized:', {
+        originalLength: adData.description.length,
+        optimizedLength: optimizedDescription.length
+      });
+
+      // Füge optimierte Beschreibung ein
+      const inserted = KleinanzeigenDOMService.insertOptimizedDescription(optimizedDescription);
+      if (!inserted) {
+        throw new Error('Beschreibung konnte nicht eingefügt werden');
+      }
+
+      // Success State
+      this.optimizeButton.innerHTML = `
+        <i class="icon icon-check"></i>
+        <span>Optimiert!</span>
+      `;
+      this.optimizeButton.style.backgroundColor = '#4caf50';
+
+      Logger.info('[Kleinanzeigen] ✅ Description optimized successfully');
+
+      // Reset nach 3 Sekunden
+      setTimeout(() => {
+        if (this.optimizeButton) {
+          this.optimizeButton.innerHTML = originalHTML;
+          this.optimizeButton.style.pointerEvents = 'auto';
+          this.optimizeButton.style.backgroundColor = '';
+        }
+        this.isProcessing = false;
+      }, 3000);
+
+    } catch (error) {
+      Logger.error('[Kleinanzeigen] Optimization error:', error);
+
+      // Error State
+      if (this.optimizeButton) {
+        this.optimizeButton.innerHTML = `
+          <i class="icon icon-exclamation-triangle"></i>
+          <span>Fehler</span>
+        `;
+        this.optimizeButton.style.backgroundColor = '#f44336';
+        this.optimizeButton.title = error instanceof Error ? error.message : 'Unbekannter Fehler';
+
+        setTimeout(() => {
+          if (this.optimizeButton) {
+            this.optimizeButton.innerHTML = originalHTML;
+            this.optimizeButton.style.pointerEvents = 'auto';
+            this.optimizeButton.style.backgroundColor = '';
+            this.optimizeButton.title = 'Beschreibung mit KI optimieren';
           }
           this.isProcessing = false;
         }, 3000);

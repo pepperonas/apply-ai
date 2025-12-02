@@ -16,6 +16,11 @@ export class ClaudeProvider extends AIService {
     'claude-3-opus-20240229'          // Opus (falls Haiku nicht verfügbar)
   ];
 
+  private readonly FALLBACK_MODELS = [
+    'claude-3-haiku-20240307',
+    'claude-3-opus-20240229'
+  ];
+
   async generateCoverLetter(
     project: Project,
     userProfile: UserProfile
@@ -67,6 +72,74 @@ export class ClaudeProvider extends AIService {
         if (response.status === 404) {
           Logger.warn(`Model ${model} not found, trying next`);
           lastError = new Error(`Model ${model} nicht verfügbar`);
+          continue;
+        }
+
+        if (!response.ok) {
+          Logger.warn(`Model ${model} failed: ${response.status}`);
+          lastError = new Error(`${model}: ${response.status}`);
+          continue;
+        }
+
+        const data = await response.json();
+
+        if (!data.content || !data.content[0] || !data.content[0].text) {
+          Logger.warn(`Model ${model} returned invalid response`);
+          lastError = new Error(`${model}: Ungültige Antwort`);
+          continue;
+        }
+
+        Logger.info(`✅ Generated successfully with model: ${model}`);
+        return data.content[0].text;
+
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('401') || error.message.includes('403') || error.message.includes('ungültig')) {
+            throw error;
+          }
+          Logger.warn(`Model ${model} error:`, error.message);
+          lastError = error;
+        }
+      }
+    }
+
+    // Alle Modelle fehlgeschlagen
+    throw lastError || new Error('Kein Claude-Modell verfügbar');
+  }
+
+  async generateText(prompt: string): Promise<string> {
+    const apiKey = this.getCleanApiKey();
+    const models = [this.model, ...this.FALLBACK_MODELS];
+    let lastError: Error | null = null;
+
+    for (const model of models) {
+      try {
+        Logger.info(`Trying Claude model: ${model}`);
+
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: model,
+            max_tokens: this.maxTokens,
+            temperature: this.temperature,
+            messages: [
+              { role: 'user', content: prompt }
+            ]
+          })
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Claude API Key ungültig oder abgelaufen');
+        }
+
+        if (response.status === 404) {
+          Logger.warn(`Model ${model} not found, trying next...`);
           continue;
         }
 
