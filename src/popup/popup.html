@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ApplyAI - Einstellungen</title>
+  <link rel="stylesheet" href="popup.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <div class="header-content">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke="#4A90E2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <h1>ApplyAI</h1>
+          <p class="subtitle">AI Bewerbungsassistent</p>
+        </div>
+      </div>
+    </header>
+    
+    <div class="popup-body">
+      <!-- AI Provider Auswahl -->
+      <section class="settings-section">
+        <div class="section-header">
+          <h2>KI-Provider</h2>
+          <span class="active-provider-badge" id="active-provider-badge">Aktiv: ChatGPT</span>
+        </div>
+        <div class="provider-tabs">
+          <button class="tab-btn active" data-provider="chatgpt">
+            ChatGPT
+          </button>
+          <button class="tab-btn" data-provider="claude">
+            Claude
+          </button>
+        </div>
+        
+        <div class="form-group">
+          <label for="api-key">API Key</label>
+          <div class="input-with-button">
+            <input type="password" id="api-key" placeholder="sk-...">
+            <div class="validate-container">
+              <button class="validate-btn" id="validate-key">
+                Validieren
+              </button>
+              <span class="validate-status hidden" id="validate-status"></span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="model-select">Modell</label>
+          <select id="model-select">
+            <!-- Wird dynamisch gefüllt -->
+          </select>
+        </div>
+      </section>
+      
+      <!-- Benutzerprofil -->
+      <section class="settings-section">
+        <h2>Ihr Profil</h2>
+        
+        <div class="form-group">
+          <label for="user-name">Name *</label>
+          <input type="text" id="user-name" required placeholder="Max Mustermann">
+        </div>
+        
+        <div class="form-group">
+          <label for="user-email">E-Mail *</label>
+          <input type="email" id="user-email" required placeholder="max@example.com">
+        </div>
+        
+        <div class="form-group">
+          <label for="user-phone">Telefon</label>
+          <input type="tel" id="user-phone" placeholder="+49 123 456789">
+        </div>
+        
+        <div class="form-group">
+          <label for="user-skills">Skills (kommagetrennt) *</label>
+          <textarea id="user-skills" rows="3" placeholder="Java, Spring Boot, React, TypeScript"></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="user-experience">Erfahrung *</label>
+          <textarea id="user-experience" rows="4" placeholder="10+ Jahre Erfahrung in Full-Stack Entwicklung mit Fokus auf..."></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="user-intro">Persönliche Intro (optional)</label>
+          <textarea id="user-intro" rows="3" placeholder="Individueller Einleitungstext für Bewerbungen"></textarea>
+        </div>
+      </section>
+      
+      <!-- Status Anzeige -->
+      <div class="status-message hidden" id="status-message"></div>
+    </div>
+    
+    <footer class="popup-footer">
+      <button class="btn btn-secondary" id="reset-btn">
+        Zurücksetzen
+      </button>
+      <button class="btn btn-primary" id="save-btn">
+        Speichern
+      </button>
+    </footer>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
+

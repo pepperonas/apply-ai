@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "ApplyAI - AI Bewerbungsassistent",
+  "version": "0.0.36",
+  "description": "Automatische Generierung von Bewerbungsanschreiben für freelancermap.de",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.freelancermap.de/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.freelancermap.de/*"
+      ],
+      "js": [
+        "content/content-script.js"
+      ],
+      "css": [
+        "content/content-styles.css"
+      ]
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
