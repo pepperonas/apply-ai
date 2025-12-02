@@ -37,7 +37,7 @@ class KleinanzeigenContentScript {
   }
 
   /**
-   * Erstellt den "ApplyAI Kaufanfrage" Button
+   * Erstellt den "Anfrage generieren" Button im Modal
    */
   private createButton(): void {
     // Warte bis Seite geladen ist
@@ -46,37 +46,68 @@ class KleinanzeigenContentScript {
       return;
     }
 
-    const contactButton = KleinanzeigenDOMService.getContactButton();
-    if (!contactButton) {
-      Logger.warn('[Kleinanzeigen] Contact button not found, retrying in 1s...', {
-        selector: '#viewad-contact-button',
-        found: !!document.querySelector('#viewad-contact-button')
-      });
-      setTimeout(() => this.createButton(), 1000);
-      return;
-    }
-
-    Logger.info('[Kleinanzeigen] Contact button found!', {
-      id: contactButton.id,
-      className: contactButton.className
-    });
-
     // Prüfe ob Button bereits existiert
     if (document.getElementById('kleinanzeigen-ai-btn')) {
       Logger.info('[Kleinanzeigen] Button already exists');
       return;
     }
 
-    // Erstelle Button in einem <li> Element (wie die anderen Buttons)
-    const li = document.createElement('li');
-    li.id = 'kleinanzeigen-ai-btn-container';
+    // Warte auf Modal (wird beim Klick auf "Nachricht schreiben" geöffnet)
+    this.observeModalOpening();
     
+    // Versuche auch direkt, falls Modal schon offen ist
+    this.tryCreateButtonInModal();
+  }
+
+  /**
+   * Beobachtet das Öffnen des Modals
+   */
+  private observeModalOpening(): void {
+    const observer = new MutationObserver(() => {
+      this.tryCreateButtonInModal();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    });
+  }
+
+  /**
+   * Versucht Button im Modal zu erstellen
+   */
+  private tryCreateButtonInModal(): void {
+    // Prüfe ob Button bereits existiert
+    if (document.getElementById('kleinanzeigen-ai-btn')) {
+      return;
+    }
+
+    // Finde das Modal
+    const modal = document.querySelector('#viewad-contact-modal-form, .modal-dialog') as HTMLElement;
+    if (!modal) {
+      return;
+    }
+
+    // Finde den "Nachricht senden" Button im Modal
+    const submitButton = modal.querySelector('.viewad-contact-submit, button[type="submit"]') as HTMLElement;
+    if (!submitButton) {
+      Logger.warn('[Kleinanzeigen] Submit button not found in modal');
+      return;
+    }
+
+    Logger.info('[Kleinanzeigen] Modal and submit button found!');
+
+    // Erstelle unseren Button
     const button = document.createElement('button');
     button.id = 'kleinanzeigen-ai-btn';
-    button.className = 'button-tertiary full-width taller';
+    button.type = 'button'; // Wichtig: nicht submit!
+    button.className = 'button button-secondary taller';
+    button.style.marginRight = '8px';
     button.innerHTML = `
       <i class="button-icon icon-gem"></i>
-      <span>ApplyAI Kaufanfrage</span>
+      <span>Anfrage generieren</span>
     `;
     button.title = 'Automatische Kaufanfrage mit Preisvorschlag';
 
@@ -86,26 +117,11 @@ class KleinanzeigenContentScript {
       await this.handleClick();
     });
 
-    li.appendChild(button);
+    // Füge Button VOR dem "Nachricht senden" Button ein
+    submitButton.parentElement?.insertBefore(button, submitButton);
+    this.button = button;
 
-    // Finde die Liste (ul.iconlist) und füge Button hinzu
-    const iconList = contactButton.closest('ul.iconlist');
-    if (iconList) {
-      // Füge nach dem "Nachricht schreiben" li ein
-      const contactLi = contactButton.closest('li');
-      if (contactLi && contactLi.nextSibling) {
-        iconList.insertBefore(li, contactLi.nextSibling);
-      } else {
-        iconList.appendChild(li);
-      }
-      this.button = button;
-      Logger.info('[Kleinanzeigen] Button created in iconlist');
-    } else {
-      // Fallback: Direkt nach dem Button einfügen
-      contactButton.parentElement?.insertBefore(li, contactButton.nextSibling);
-      this.button = button;
-      Logger.info('[Kleinanzeigen] Button created (fallback)');
-    }
+    Logger.info('[Kleinanzeigen] Button created in modal next to submit button');
   }
 
   /**
@@ -121,7 +137,7 @@ class KleinanzeigenContentScript {
       // Loading State
       this.button.innerHTML = `
         <i class="button-icon icon-spinner fa-spin"></i>
-        <span>Verarbeite...</span>
+        <span>Generiere...</span>
       `;
       this.button.style.pointerEvents = 'none';
 
@@ -131,11 +147,22 @@ class KleinanzeigenContentScript {
         throw new Error('Produktdaten konnten nicht extrahiert werden');
       }
 
+      Logger.info('[Kleinanzeigen] Product data extracted:', {
+        title: product.title,
+        price: product.price,
+        adId: product.adId
+      });
+
       // Lade Einstellungen
       const settings = await StorageService.load<KleinanzeigenSettings>('kleinanzeigen_settings');
       if (!settings || !settings.discount) {
-        throw new Error('Bitte konfiguriere zuerst den Rabatt in den Einstellungen');
+        throw new Error('Bitte konfiguriere zuerst den Rabatt in den Einstellungen (Extension-Icon klicken)');
       }
+
+      Logger.info('[Kleinanzeigen] Settings loaded:', {
+        discountType: settings.discount.type,
+        discountValue: settings.discount.value
+      });
 
       // Generiere Nachricht
       const message = MessageGenerator.generatePurchaseMessage(
@@ -146,24 +173,10 @@ class KleinanzeigenContentScript {
 
       Logger.info('[Kleinanzeigen] Message generated:', message);
 
-      // Öffne Kontaktformular
+      // Füge Nachricht ein (Modal ist bereits offen)
       this.button.innerHTML = `
         <i class="button-icon icon-spinner fa-spin"></i>
-        <span>Öffne Formular...</span>
-      `;
-
-      const modalOpened = await KleinanzeigenDOMService.openContactForm();
-      if (!modalOpened) {
-        throw new Error('Kontaktformular konnte nicht geöffnet werden');
-      }
-
-      // Warte kurz für Modal-Animation
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Füge Nachricht ein
-      this.button.innerHTML = `
-        <i class="button-icon icon-spinner fa-spin"></i>
-        <span>Füge Nachricht ein...</span>
+        <span>Füge ein...</span>
       `;
 
       const inserted = KleinanzeigenDOMService.insertMessage(message);
@@ -174,11 +187,11 @@ class KleinanzeigenContentScript {
       // Success State
       this.button.innerHTML = `
         <i class="button-icon icon-check"></i>
-        <span>Nachricht eingefügt!</span>
+        <span>Fertig!</span>
       `;
       this.button.style.backgroundColor = '#4caf50';
 
-      Logger.info('[Kleinanzeigen] Message inserted successfully');
+      Logger.info('[Kleinanzeigen] ✅ Message inserted successfully');
 
       // Reset nach 3 Sekunden
       setTimeout(() => {
