@@ -17,12 +17,17 @@ class KleinanzeigenContentScript {
   }
 
   private init(): void {
+    Logger.info('[Kleinanzeigen] Checking if product page...', {
+      hostname: window.location.hostname,
+      pathname: window.location.pathname
+    });
+    
     if (!KleinanzeigenDOMService.isProductPage()) {
       Logger.info('[Kleinanzeigen] Not a product page');
       return;
     }
 
-    Logger.info('[Kleinanzeigen] Product page detected');
+    Logger.info('[Kleinanzeigen] Product page detected! Creating button...');
     this.createButton();
   }
 
@@ -38,21 +43,32 @@ class KleinanzeigenContentScript {
 
     const contactButton = KleinanzeigenDOMService.getContactButton();
     if (!contactButton) {
-      Logger.warn('[Kleinanzeigen] Contact button not found, retrying...');
+      Logger.warn('[Kleinanzeigen] Contact button not found, retrying in 1s...', {
+        selector: '#viewad-contact-button',
+        found: !!document.querySelector('#viewad-contact-button')
+      });
       setTimeout(() => this.createButton(), 1000);
       return;
     }
 
+    Logger.info('[Kleinanzeigen] Contact button found!', {
+      id: contactButton.id,
+      className: contactButton.className
+    });
+
     // Prüfe ob Button bereits existiert
     if (document.getElementById('kleinanzeigen-ai-btn')) {
+      Logger.info('[Kleinanzeigen] Button already exists');
       return;
     }
 
-    // Erstelle Button
+    // Erstelle Button in einem <li> Element (wie die anderen Buttons)
+    const li = document.createElement('li');
+    li.id = 'kleinanzeigen-ai-btn-container';
+    
     const button = document.createElement('button');
     button.id = 'kleinanzeigen-ai-btn';
     button.className = 'button-tertiary full-width taller';
-    button.style.marginTop = '8px';
     button.innerHTML = `
       <i class="button-icon icon-gem"></i>
       <span>ApplyAI Kaufanfrage</span>
@@ -65,11 +81,26 @@ class KleinanzeigenContentScript {
       await this.handleClick();
     });
 
-    // Füge Button nach dem "Nachricht schreiben" Button ein
-    contactButton.parentElement?.insertBefore(button, contactButton.nextSibling);
-    this.button = button;
+    li.appendChild(button);
 
-    Logger.info('[Kleinanzeigen] Button created');
+    // Finde die Liste (ul.iconlist) und füge Button hinzu
+    const iconList = contactButton.closest('ul.iconlist');
+    if (iconList) {
+      // Füge nach dem "Nachricht schreiben" li ein
+      const contactLi = contactButton.closest('li');
+      if (contactLi && contactLi.nextSibling) {
+        iconList.insertBefore(li, contactLi.nextSibling);
+      } else {
+        iconList.appendChild(li);
+      }
+      this.button = button;
+      Logger.info('[Kleinanzeigen] Button created in iconlist');
+    } else {
+      // Fallback: Direkt nach dem Button einfügen
+      contactButton.parentElement?.insertBefore(li, contactButton.nextSibling);
+      this.button = button;
+      Logger.info('[Kleinanzeigen] Button created (fallback)');
+    }
   }
 
   /**
