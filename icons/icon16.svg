@@ -2,7 +2,7 @@
   <!-- Roter Hintergrund (Chrome On Steroids Red) -->
   <rect width="16" height="16" fill="#DC2626" rx="3"/>
   
-  <!-- Weißer "AI" Text -->
+  <!-- Weißer "CoS" Text -->
   <text 
     x="8" 
     y="10" 
@@ -11,16 +11,5 @@
     font-weight="bold" 
     fill="white" 
     text-anchor="middle"
-    letter-spacing="-1">AI</text>
-  
-  <!-- Gelber Badge mit Blitz oben rechts -->
-  <circle cx="12" cy="3" r="2" fill="#FCD34D"/>
-  <text 
-    x="12" 
-    y="4" 
-    font-family="Arial, sans-serif" 
-    font-size="2" 
-    fill="#DC2626" 
-    text-anchor="middle"
-    font-weight="bold">⚡</text>
+    letter-spacing="-0.5">CoS</text>
 </svg>

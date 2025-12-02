@@ -2,7 +2,7 @@
 
 /**
  * Generate Chrome Extension Icons
- * Creates PNG icons with red background and white "AI" text
+ * Creates PNG icons with red background and white "CoS" text
  */
 
 const fs = require('fs');
@@ -10,21 +10,15 @@ const path = require('path');
 
 // SVG template for different sizes
 function generateSVG(size) {
-  const fontSize = Math.floor(size * 0.44);
+  const fontSize = Math.floor(size * 0.48);
   const borderRadius = Math.floor(size * 0.19);
-  const textY = Math.floor(size * 0.66);
-  const boltSize = Math.floor(size * 0.125);
-  const boltX = Math.floor(size * 0.78);
-  const boltY = Math.floor(size * 0.22);
-  const boltRadius = Math.floor(size * 0.125);
-  const boltFontSize = Math.floor(size * 0.156);
-  const boltTextY = Math.floor(size * 0.28);
+  const textY = Math.floor(size * 0.68);
 
   return `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
   <!-- Roter Hintergrund (Chrome On Steroids Red) -->
   <rect width="${size}" height="${size}" fill="#DC2626" rx="${borderRadius}"/>
   
-  <!-- Weißer "AI" Text -->
+  <!-- Weißer "CoS" Text -->
   <text 
     x="${size/2}" 
     y="${textY}" 
@@ -33,18 +27,7 @@ function generateSVG(size) {
     font-weight="bold" 
     fill="white" 
     text-anchor="middle"
-    letter-spacing="-1">AI</text>
-  
-  <!-- Gelber Badge mit Blitz oben rechts -->
-  <circle cx="${boltX}" cy="${boltY}" r="${boltRadius}" fill="#FCD34D"/>
-  <text 
-    x="${boltX}" 
-    y="${boltTextY}" 
-    font-family="Arial, sans-serif" 
-    font-size="${boltFontSize}" 
-    fill="#DC2626" 
-    text-anchor="middle"
-    font-weight="bold">⚡</text>
+    letter-spacing="-0.5">CoS</text>
 </svg>`;
 }
 

@@ -504,6 +504,8 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ## 📈 Roadmap
 
+- [ ] **LinkedIn** - Bewerbungen, Networking
+- [ ] **Google Forms** - universell einsetzbar
 - [ ] Support for more job platforms
 - [ ] Support for more marketplace platforms
 - [ ] Custom AI prompt templates

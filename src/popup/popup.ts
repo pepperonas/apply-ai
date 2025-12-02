@@ -471,25 +471,36 @@ class PopupController {
   private async exportSettings(): Promise<void> {
     try {
       // Lade ALLE Daten aus dem Chrome Storage (dynamisch)
-      const allData = await chrome.storage.local.get(null);
+      // Verwende sowohl local als auch sync Storage
+      const [localData, syncData] = await Promise.all([
+        chrome.storage.local.get(null),
+        chrome.storage.sync.get(null)
+      ]);
 
-      if (!allData || Object.keys(allData).length === 0) {
-        this.showStatus('Keine Einstellungen zum Exportieren vorhanden', 'error');
-        return;
-      }
+      // Kombiniere beide Storage-Bereiche
+      const allData = { ...localData, ...syncData };
+
+      // Filtere relevante Keys (ignoriere Chrome-interne Keys)
+      const relevantKeys = Object.keys(allData).filter(key => 
+        !key.startsWith('_') && 
+        key !== 'chrome-extension' &&
+        key.length > 0
+      );
 
       // Erstelle Export-Objekt mit allen Storage-Keys
       const exportData = {
         version: '2.0', // Version erhöht für neues Format
         exportDate: new Date().toISOString(),
         extensionVersion: chrome.runtime.getManifest().version,
-        storageKeys: Object.keys(allData), // Liste aller Keys für Debugging
-        data: allData // Alle Storage-Daten
+        storageKeys: relevantKeys, // Liste aller relevanten Keys
+        data: relevantKeys.length > 0 
+          ? Object.fromEntries(relevantKeys.map(key => [key, allData[key]]))
+          : {} // Leeres Objekt wenn keine Daten vorhanden
       };
 
       Logger.info('Exporting all settings:', {
-        keys: Object.keys(allData),
-        totalKeys: Object.keys(allData).length
+        keys: relevantKeys,
+        totalKeys: relevantKeys.length
       });
 
       // Konvertiere zu JSON
@@ -508,10 +519,15 @@ class PopupController {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      this.showStatus(`${Object.keys(allData).length} Einstellungen exportiert ✓`, 'success');
+      if (relevantKeys.length > 0) {
+        this.showStatus(`${relevantKeys.length} Einstellungen exportiert ✓`, 'success');
+      } else {
+        this.showStatus('Leere Einstellungsdatei exportiert (keine Einstellungen vorhanden)', 'success');
+      }
+      
       Logger.info('All settings exported successfully', {
-        totalKeys: Object.keys(allData).length,
-        keys: Object.keys(allData)
+        totalKeys: relevantKeys.length,
+        keys: relevantKeys
       });
 
     } catch (error) {
