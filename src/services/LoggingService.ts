@@ -9,9 +9,26 @@ export class LoggingService {
   private static readonly MAX_LOGS = 100; // Maximal 100 Logs speichern
   
   /**
+   * Prüft ob Extension Context noch gültig ist
+   */
+  private static isContextValid(): boolean {
+    try {
+      return !!chrome?.runtime?.id;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Speichert einen Log-Eintrag
    */
   static async saveLog(log: GenerationLog | Partial<GenerationLog>): Promise<void> {
+    // Prüfe Context vor dem Speichern
+    if (!this.isContextValid()) {
+      Logger.warn('Extension context invalidated - skipping log save');
+      return; // Fail silently, da Logging nicht kritisch ist
+    }
+
     try {
       // Lade existierende Logs
       const existingLogs = await this.loadLogs();
@@ -31,6 +48,12 @@ export class LoggingService {
       });
       
     } catch (error) {
+      // Prüfe ob es ein Context-Error ist
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Extension context invalidated') || errorMessage.includes('invalidated')) {
+        Logger.warn('Extension context invalidated during log save - skipping');
+        return; // Fail silently
+      }
       Logger.error('Error saving generation log:', error);
     }
   }
@@ -39,10 +62,21 @@ export class LoggingService {
    * Lädt alle gespeicherten Logs
    */
   static async loadLogs(): Promise<Array<GenerationLog | Partial<GenerationLog>>> {
+    // Prüfe Context vor dem Laden
+    if (!this.isContextValid()) {
+      Logger.warn('Extension context invalidated - returning empty logs');
+      return [];
+    }
+
     try {
       const result = await chrome.storage.local.get([this.STORAGE_KEY]);
       return result[this.STORAGE_KEY] || [];
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Extension context invalidated') || errorMessage.includes('invalidated')) {
+        Logger.warn('Extension context invalidated during log load - returning empty');
+        return [];
+      }
       Logger.error('Error loading generation logs:', error);
       return [];
     }

@@ -8,6 +8,7 @@ import { Logger } from '../utils/logger';
 class ApplyAIAssistant {
   private generateButton: HTMLElement | null = null;
   private observer: MutationObserver | null = null;
+  private isCreatingButton = false; // Verhindert mehrfache Button-Erstellung
 
   constructor() {
     this.initialize();
@@ -162,24 +163,40 @@ class ApplyAIAssistant {
       }, 2000);
 
     } catch (error) {
+      // Prüfe ob es ein Context-Error ist
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isContextInvalidated = errorMessage.includes('Extension context invalidated') || 
+                                    errorMessage.includes('invalidated') ||
+                                    errorMessage.includes('neu geladen');
+
       // Fehler anzeigen
-      button.innerHTML = `
-        <i class="far fa-xmark"></i>
-        <span>Fehler</span>
-      `;
+      if (isContextInvalidated) {
+        button.innerHTML = `
+          <i class="far fa-exclamation-triangle"></i>
+          <span>Seite neu laden</span>
+        `;
+        button.title = 'Extension wurde neu geladen. Bitte lade die Seite neu (F5).';
+      } else {
+        button.innerHTML = `
+          <i class="far fa-xmark"></i>
+          <span>Fehler</span>
+        `;
+      }
+      
       button.style.pointerEvents = 'auto';
       button.style.opacity = '1';
       button.style.cursor = 'pointer';
 
       Logger.error('Generation failed:', error);
       
-      // Nach 3 Sekunden zurücksetzen
+      // Nach 5 Sekunden zurücksetzen (länger bei Context-Error)
       setTimeout(() => {
         button.innerHTML = `
           <i class="far fa-gem"></i>
           <span>ApplyAI</span>
         `;
-      }, 3000);
+        button.title = 'Anschreiben mit AI generieren';
+      }, isContextInvalidated ? 5000 : 3000);
     }
   }
 
@@ -231,8 +248,22 @@ class ApplyAIAssistant {
       return; // Button existiert bereits, nichts tun
     }
 
+    // Verhindere mehrfache gleichzeitige Erstellung
+    if (this.isCreatingButton) {
+      return;
+    }
+
+    this.isCreatingButton = true;
     Logger.info('Erstelle ApplyAI Button im Modal');
-    this.createGenerateButtonInModal(textarea);
+    
+    try {
+      this.createGenerateButtonInModal(textarea);
+    } finally {
+      // Reset nach kurzer Verzögerung (falls Observer mehrfach triggert)
+      setTimeout(() => {
+        this.isCreatingButton = false;
+      }, 500);
+    }
   }
 
   private createGenerateButtonInModal(textarea: HTMLTextAreaElement): void {
