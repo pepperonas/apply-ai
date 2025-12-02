@@ -17,6 +17,11 @@ class KleinanzeigenContentScript {
   }
 
   private init(): void {
+    // Prüfe zuerst ob wir überhaupt auf Kleinanzeigen sind
+    if (!window.location.hostname.includes('kleinanzeigen.de')) {
+      return; // Kein Log, da wir auf FreelancerMap sein könnten
+    }
+
     Logger.info('[Kleinanzeigen] Checking if product page...', {
       hostname: window.location.hostname,
       pathname: window.location.pathname

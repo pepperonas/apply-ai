@@ -11,6 +11,11 @@ class FreelancerMapContentScript {
   private isCreatingButton = false;
 
   constructor() {
+    // Prüfe zuerst ob wir überhaupt auf FreelancerMap sind
+    if (!window.location.hostname.includes('freelancermap.de')) {
+      return; // Kein Log, da wir auf Kleinanzeigen sein könnten
+    }
+
     Logger.info('[FreelancerMap] Content Script initialized');
     this.initialize();
   }
