@@ -121,12 +121,20 @@ ${project.remote ? '→ Erwähne Remote-Erfahrung nur wenn sie im Profil steht!'
 → "Gerne bespreche ich die Details in einem kurzen Call"
 
 ${userProfile.portfolio ? `
-**[PORTFOLIO-PROJEKTE]** (2-4 Zeilen, optional)
-→ Erwähne relevante Portfolio-Projekte kurz und prägnant
-→ Format: "Gerne zeige ich Ihnen auch meine Projekte: [Projekt-Links/Namen]"
-→ Portfolio-Projekte aus deinem Profil:
+**[PORTFOLIO-PROJEKTE]** (PFLICHT - 2-4 Zeilen)
+→ WICHTIG: Füge IMMER diesen Abschnitt ein!
+→ Format: "Gerne zeige ich Ihnen auch einige meiner Projekte:" gefolgt von den Links
+→ Verwende GENAU diese Portfolio-Projekte:
 ${userProfile.portfolio.split('\n').map(line => line.trim()).filter(line => line).map(line => `  ${line}`).join('\n')}
-→ NUR erwähnen wenn relevant für das Projekt!
+→ Füge eine Leerzeile vor diesem Abschnitt ein
+→ Beispiel:
+  "Ich kann sofort starten und freue mich auf ein Gespräch.
+  
+  Gerne zeige ich Ihnen auch einige meiner Projekte:
+  - mxster.de - Music Quiz App (React, TypeScript)
+  - berlinometer.de - Berlin Events Platform
+  
+  Viele Grüße"
 ` : ''}
 
 **[VERABSCHIEDUNG]** (2 Zeilen)
