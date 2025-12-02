@@ -249,46 +249,89 @@ class KleinanzeigenContentScript {
       return;
     }
 
+    // Warte kurz, bis React das Formular gerendert hat
+    setTimeout(() => {
+      this.tryCreateOptimizeButton();
+      
+      // Beobachte das Formular auf Änderungen (z.B. Kategorieauswahl)
+      this.observeFormChanges();
+    }, 500);
+  }
+
+  /**
+   * Versucht den Optimize-Button zu erstellen
+   */
+  private tryCreateOptimizeButton(): void {
     // Prüfe ob Button bereits existiert
     if (document.getElementById('kleinanzeigen-optimize-btn')) {
       Logger.info('[Kleinanzeigen] Optimize button already exists');
       return;
     }
 
-    // Warte kurz, bis React das Formular gerendert hat
-    setTimeout(() => {
-      const labelContainer = KleinanzeigenDOMService.getDescriptionOptimizeButtonContainer();
-      if (!labelContainer) {
-        Logger.warn('[Kleinanzeigen] Description label not found, retrying...');
-        setTimeout(() => this.createOptimizeButton(), 1000);
+    const labelContainer = KleinanzeigenDOMService.getDescriptionOptimizeButtonContainer();
+    if (!labelContainer) {
+      Logger.warn('[Kleinanzeigen] Description label not found');
+      return;
+    }
+
+    // Erstelle Button
+    const button = document.createElement('button');
+    button.id = 'kleinanzeigen-optimize-btn';
+    button.type = 'button';
+    button.className = 'button button-secondary';
+    button.style.marginLeft = '12px';
+    button.style.verticalAlign = 'middle';
+    button.innerHTML = `
+      <i class="icon icon-gem"></i>
+      <span>Mit AI optimieren</span>
+    `;
+    button.title = 'Beschreibung mit KI optimieren';
+
+    button.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await this.handleOptimizeClick();
+    });
+
+    // Füge Button neben dem Label ein
+    labelContainer.appendChild(button);
+    this.optimizeButton = button;
+
+    Logger.info('[Kleinanzeigen] Optimize button created');
+  }
+
+  /**
+   * Beobachtet das Formular auf Änderungen (z.B. Kategorieauswahl)
+   */
+  private observeFormChanges(): void {
+    const formContainer = document.querySelector('#postad-addetails, .formgroup');
+    if (!formContainer) {
+      Logger.warn('[Kleinanzeigen] Form container not found for observation');
+      return;
+    }
+
+    const observer = new MutationObserver(() => {
+      // Prüfe ob das Beschreibungsfeld noch existiert
+      const descriptionField = document.querySelector('#pstad-descrptn');
+      if (!descriptionField) {
         return;
       }
 
-      // Erstelle Button
-      const button = document.createElement('button');
-      button.id = 'kleinanzeigen-optimize-btn';
-      button.type = 'button';
-      button.className = 'button button-secondary';
-      button.style.marginLeft = '12px';
-      button.style.verticalAlign = 'middle';
-      button.innerHTML = `
-        <i class="icon icon-gem"></i>
-        <span>Mit AI optimieren</span>
-      `;
-      button.title = 'Beschreibung mit KI optimieren';
+      // Prüfe ob Button fehlt
+      const button = document.getElementById('kleinanzeigen-optimize-btn');
+      if (!button) {
+        Logger.info('[Kleinanzeigen] Button missing after form update, recreating...');
+        this.tryCreateOptimizeButton();
+      }
+    });
 
-      button.addEventListener('click', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        await this.handleOptimizeClick();
-      });
+    observer.observe(formContainer, {
+      childList: true,
+      subtree: true,
+      attributes: false
+    });
 
-      // Füge Button neben dem Label ein
-      labelContainer.appendChild(button);
-      this.optimizeButton = button;
-
-      Logger.info('[Kleinanzeigen] Optimize button created');
-    }, 500);
+    Logger.info('[Kleinanzeigen] Form observer started');
   }
 
   /**
