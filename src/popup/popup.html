@@ -100,12 +100,29 @@
     </div>
     
     <footer class="popup-footer">
-      <button class="btn btn-secondary" id="reset-btn">
-        Zurücksetzen
-      </button>
-      <button class="btn btn-primary" id="save-btn">
-        Speichern
-      </button>
+      <div class="footer-left">
+        <button class="btn btn-icon" id="export-btn" title="Einstellungen exportieren">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+          Export
+        </button>
+        <button class="btn btn-icon" id="import-btn" title="Einstellungen importieren">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+          </svg>
+          Import
+        </button>
+        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+      </div>
+      <div class="footer-right">
+        <button class="btn btn-secondary" id="reset-btn">
+          Zurücksetzen
+        </button>
+        <button class="btn btn-primary" id="save-btn">
+          Speichern
+        </button>
+      </div>
     </footer>
   </div>
   

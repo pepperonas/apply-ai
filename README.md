@@ -90,6 +90,31 @@ Die Extension ist dann im `dist` Ordner bereit für die Distribution.
 4. Klicke auf **"ApplyAI"** um das Anschreiben zu generieren
 5. Das generierte Anschreiben wird automatisch in das Textfeld eingefügt
 
+### 3. Einstellungen exportieren/importieren
+
+**Export:**
+1. Öffne die Extension (Klick auf das Icon)
+2. Klicke auf **"Export"** (unten links)
+3. Eine JSON-Datei wird heruntergeladen: `applyai-settings-YYYY-MM-DD.json`
+
+**Import:**
+1. Öffne die Extension
+2. Klicke auf **"Import"** (unten links)
+3. Wähle eine zuvor exportierte JSON-Datei
+4. Bestätige den Import (überschreibt aktuelle Einstellungen!)
+5. Alle Einstellungen werden automatisch geladen
+
+**Was wird exportiert/importiert:**
+- ✅ API Keys (ChatGPT & Claude)
+- ✅ Ausgewählte Modelle
+- ✅ Aktiver Provider
+- ✅ Benutzerprofil (Name, E-Mail, Skills, Erfahrung, etc.)
+
+**Anwendungsfälle:**
+- 💾 Backup deiner Einstellungen
+- 🔄 Synchronisation zwischen mehreren Geräten
+- 👥 Team-Settings teilen (ohne API Keys zu teilen - einfach vorher löschen)
+
 ## AI-Provider & Modelle
 
 ### ChatGPT (OpenAI)

@@ -92,6 +92,26 @@ class PopupController {
     document.getElementById('reset-btn')?.addEventListener('click', async () => {
       await this.resetSettings();
     });
+
+    // Export Button
+    document.getElementById('export-btn')?.addEventListener('click', async () => {
+      await this.exportSettings();
+    });
+
+    // Import Button
+    document.getElementById('import-btn')?.addEventListener('click', () => {
+      const fileInput = document.getElementById('import-file-input') as HTMLInputElement;
+      fileInput?.click();
+    });
+
+    // Import File Input
+    document.getElementById('import-file-input')?.addEventListener('change', async (e) => {
+      const input = e.target as HTMLInputElement;
+      if (input.files && input.files[0]) {
+        await this.importSettings(input.files[0]);
+        input.value = ''; // Reset input
+      }
+    });
   }
 
   private switchProvider(provider: AIProvider): void {
@@ -385,6 +405,98 @@ class PopupController {
     setTimeout(() => {
       statusDiv.classList.add('hidden');
     }, 3000);
+  }
+
+  /**
+   * Exportiert alle Einstellungen als JSON-Datei
+   */
+  private async exportSettings(): Promise<void> {
+    try {
+      // Lade alle Daten aus dem Storage
+      const apiConfig = await StorageService.load<ApiConfig>(CONSTANTS.STORAGE_KEYS.API_CONFIG);
+      const userProfile = await StorageService.load<UserProfile>(CONSTANTS.STORAGE_KEYS.USER_PROFILE);
+
+      if (!apiConfig && !userProfile) {
+        this.showStatus('Keine Einstellungen zum Exportieren vorhanden', 'error');
+        return;
+      }
+
+      // Erstelle Export-Objekt
+      const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        apiConfig: apiConfig || null,
+        userProfile: userProfile || null
+      };
+
+      // Konvertiere zu JSON
+      const jsonString = JSON.stringify(exportData, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+
+      // Erstelle Download-Link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `applyai-settings-${new Date().toISOString().split('T')[0]}.json`;
+      
+      // Trigger Download
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      this.showStatus('Einstellungen erfolgreich exportiert ✓', 'success');
+      Logger.info('Settings exported successfully');
+
+    } catch (error) {
+      this.showStatus('Fehler beim Exportieren', 'error');
+      Logger.error('Error exporting settings:', error);
+    }
+  }
+
+  /**
+   * Importiert Einstellungen aus einer JSON-Datei
+   */
+  private async importSettings(file: File): Promise<void> {
+    try {
+      // Lese Datei
+      const text = await file.text();
+      const importData = JSON.parse(text);
+
+      // Validiere Format
+      if (!importData.version || !importData.exportDate) {
+        throw new Error('Ungültiges Dateiformat');
+      }
+
+      // Bestätige Import
+      const confirmMessage = `Einstellungen importieren?\n\nExportiert am: ${new Date(importData.exportDate).toLocaleString('de-DE')}\n\nAlle aktuellen Einstellungen werden überschrieben!`;
+      
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+
+      // Importiere API Config
+      if (importData.apiConfig) {
+        await StorageService.save(CONSTANTS.STORAGE_KEYS.API_CONFIG, importData.apiConfig);
+        Logger.info('API Config imported');
+      }
+
+      // Importiere User Profile
+      if (importData.userProfile) {
+        await StorageService.save(CONSTANTS.STORAGE_KEYS.USER_PROFILE, importData.userProfile);
+        Logger.info('User Profile imported');
+      }
+
+      // Lade Einstellungen neu
+      await this.loadSettings();
+
+      this.showStatus('Einstellungen erfolgreich importiert ✓', 'success');
+      Logger.info('Settings imported successfully');
+
+    } catch (error) {
+      this.showStatus('Fehler beim Importieren - Ungültige Datei', 'error');
+      Logger.error('Error importing settings:', error);
+    }
   }
 }
 
