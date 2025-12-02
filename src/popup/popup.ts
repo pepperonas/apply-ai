@@ -470,22 +470,27 @@ class PopupController {
    */
   private async exportSettings(): Promise<void> {
     try {
-      // Lade alle Daten aus dem Storage
-      const apiConfig = await StorageService.load<ApiConfig>(CONSTANTS.STORAGE_KEYS.API_CONFIG);
-      const userProfile = await StorageService.load<UserProfile>(CONSTANTS.STORAGE_KEYS.USER_PROFILE);
+      // Lade ALLE Daten aus dem Chrome Storage (dynamisch)
+      const allData = await chrome.storage.local.get(null);
 
-      if (!apiConfig && !userProfile) {
+      if (!allData || Object.keys(allData).length === 0) {
         this.showStatus('Keine Einstellungen zum Exportieren vorhanden', 'error');
         return;
       }
 
-      // Erstelle Export-Objekt
+      // Erstelle Export-Objekt mit allen Storage-Keys
       const exportData = {
-        version: '1.0',
+        version: '2.0', // Version erhöht für neues Format
         exportDate: new Date().toISOString(),
-        apiConfig: apiConfig || null,
-        userProfile: userProfile || null
+        extensionVersion: chrome.runtime.getManifest().version,
+        storageKeys: Object.keys(allData), // Liste aller Keys für Debugging
+        data: allData // Alle Storage-Daten
       };
+
+      Logger.info('Exporting all settings:', {
+        keys: Object.keys(allData),
+        totalKeys: Object.keys(allData).length
+      });
 
       // Konvertiere zu JSON
       const jsonString = JSON.stringify(exportData, null, 2);
@@ -495,7 +500,7 @@ class PopupController {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `chromeonsteroids-settings-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `chrome-on-steroids-settings-${new Date().toISOString().split('T')[0]}.json`;
       
       // Trigger Download
       document.body.appendChild(a);
@@ -503,8 +508,11 @@ class PopupController {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      this.showStatus('Einstellungen erfolgreich exportiert ✓', 'success');
-      Logger.info('Settings exported successfully');
+      this.showStatus(`${Object.keys(allData).length} Einstellungen exportiert ✓`, 'success');
+      Logger.info('All settings exported successfully', {
+        totalKeys: Object.keys(allData).length,
+        keys: Object.keys(allData)
+      });
 
     } catch (error) {
       this.showStatus('Fehler beim Exportieren', 'error');
@@ -527,29 +535,54 @@ class PopupController {
       }
 
       // Bestätige Import
-      const confirmMessage = `Einstellungen importieren?\n\nExportiert am: ${new Date(importData.exportDate).toLocaleString('de-DE')}\n\nAlle aktuellen Einstellungen werden überschrieben!`;
+      const keysToImport = importData.version === '2.0' 
+        ? importData.storageKeys || []
+        : ['apiConfig', 'userProfile']; // Legacy Format
+
+      const confirmMessage = `Einstellungen importieren?\n\nExportiert am: ${new Date(importData.exportDate).toLocaleString('de-DE')}\nVersion: ${importData.version}\nEinstellungen: ${keysToImport.length} Keys\n\nAlle aktuellen Einstellungen werden überschrieben!`;
       
       if (!confirm(confirmMessage)) {
         return;
       }
 
-      // Importiere API Config
-      if (importData.apiConfig) {
-        await StorageService.save(CONSTANTS.STORAGE_KEYS.API_CONFIG, importData.apiConfig);
-        Logger.info('API Config imported');
-      }
+      let importedCount = 0;
 
-      // Importiere User Profile
-      if (importData.userProfile) {
-        await StorageService.save(CONSTANTS.STORAGE_KEYS.USER_PROFILE, importData.userProfile);
-        Logger.info('User Profile imported');
+      // Neues Format (v2.0): Importiere alle Storage-Keys dynamisch
+      if (importData.version === '2.0' && importData.data) {
+        // Importiere alle Keys aus dem data-Objekt
+        for (const [key, value] of Object.entries(importData.data)) {
+          if (value !== null && value !== undefined) {
+            await StorageService.save(key, value);
+            importedCount++;
+            Logger.info(`Imported: ${key}`);
+          }
+        }
+      } 
+      // Legacy Format (v1.0): Importiere bekannte Keys
+      else {
+        if (importData.apiConfig) {
+          await StorageService.save(CONSTANTS.STORAGE_KEYS.API_CONFIG, importData.apiConfig);
+          importedCount++;
+          Logger.info('API Config imported (legacy)');
+        }
+
+        if (importData.userProfile) {
+          await StorageService.save(CONSTANTS.STORAGE_KEYS.USER_PROFILE, importData.userProfile);
+          importedCount++;
+          Logger.info('User Profile imported (legacy)');
+        }
       }
 
       // Lade Einstellungen neu
       await this.loadSettings();
+      await KleinanzeigenPopupExtension.loadKleinanzeigenSettings();
+      await KleinanzeigenPopupExtension.loadSellerSettings();
 
-      this.showStatus('Einstellungen erfolgreich importiert ✓', 'success');
-      Logger.info('Settings imported successfully');
+      this.showStatus(`${importedCount} Einstellungen importiert ✓`, 'success');
+      Logger.info('Settings imported successfully', {
+        importedCount,
+        version: importData.version
+      });
 
     } catch (error) {
       this.showStatus('Fehler beim Importieren - Ungültige Datei', 'error');
