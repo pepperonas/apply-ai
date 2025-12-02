@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "ApplyAI - AI Bewerbungsassistent",
-  "version": "0.0.57",
-  "description": "Automatische Generierung von Bewerbungsanschreiben für freelancermap.de",
+  "version": "0.0.60",
+  "description": "Automatische Generierung von Bewerbungsanschreiben für freelancermap.de und Kaufanfragen für kleinanzeigen.de",
   "permissions": [
     "storage",
     "activeTab",
@@ -10,6 +10,7 @@
   ],
   "host_permissions": [
     "https://www.freelancermap.de/*",
+    "https://www.kleinanzeigen.de/*",
     "https://api.openai.com/*",
     "https://api.anthropic.com/*"
   ],
@@ -19,10 +20,11 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.freelancermap.de/*"
+        "https://www.freelancermap.de/*",
+        "https://www.kleinanzeigen.de/*"
       ],
       "js": [
-        "content/content-script.js"
+        "content/content-router.js"
       ],
       "css": [
         "content/content-styles.css"

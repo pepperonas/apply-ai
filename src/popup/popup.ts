@@ -1,11 +1,12 @@
-import { StorageService } from '../services/StorageService';
-import { LoggingService } from '../services/LoggingService';
-import { ChatGPTProvider } from '../services/ChatGPTProvider';
-import { ClaudeProvider } from '../services/ClaudeProvider';
-import { ApiConfig, AIProvider } from '../models/ApiConfig';
-import { UserProfile } from '../models/UserProfile';
-import { CONSTANTS } from '../utils/constants';
-import { Logger } from '../utils/logger';
+import { StorageService } from '../shared/services/StorageService';
+import { LoggingService } from '../shared/services/LoggingService';
+import { ChatGPTProvider } from '../shared/services/ChatGPTProvider';
+import { ClaudeProvider } from '../shared/services/ClaudeProvider';
+import { ApiConfig, AIProvider } from '../shared/models/ApiConfig';
+import { UserProfile } from '../shared/models/UserProfile';
+import { CONSTANTS } from '../shared/utils/constants';
+import { Logger } from '../shared/utils/logger';
+import { KleinanzeigenPopupExtension } from './popup-extended';
 
 /**
  * Popup Controller für Einstellungen
@@ -20,7 +21,9 @@ class PopupController {
   private async initialize(): Promise<void> {
     await this.loadSettings();
     await this.loadLogStats();
+    await KleinanzeigenPopupExtension.loadKleinanzeigenSettings();
     this.attachEventListeners();
+    KleinanzeigenPopupExtension.attachEventListeners();
   }
 
   private async loadSettings(): Promise<void> {
@@ -373,6 +376,9 @@ class PopupController {
       };
       await StorageService.save(CONSTANTS.STORAGE_KEYS.USER_PROFILE, userProfile);
 
+      // Speichere Kleinanzeigen-Einstellungen
+      await KleinanzeigenPopupExtension.saveKleinanzeigenSettings();
+
       // Aktualisiere den Active-Badge
       this.updateActiveBadge(this.currentProvider);
 
@@ -403,6 +409,9 @@ class PopupController {
       (document.getElementById('user-experience') as HTMLTextAreaElement).value = '';
       (document.getElementById('user-intro') as HTMLTextAreaElement).value = '';
       (document.getElementById('user-portfolio') as HTMLTextAreaElement).value = '';
+
+      // Reset Kleinanzeigen-Einstellungen
+      await KleinanzeigenPopupExtension.resetKleinanzeigenSettings();
 
       this.showStatus('Einstellungen zurückgesetzt', 'success');
     }
