@@ -1,0 +1,26 @@
+<svg width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+  <!-- Roter Hintergrund (Chrome On Steroids Red) -->
+  <rect width="48" height="48" fill="#DC2626" rx="9"/>
+  
+  <!-- Weißer "AI" Text -->
+  <text 
+    x="24" 
+    y="31" 
+    font-family="Arial, sans-serif" 
+    font-size="21" 
+    font-weight="bold" 
+    fill="white" 
+    text-anchor="middle"
+    letter-spacing="-1">AI</text>
+  
+  <!-- Gelber Badge mit Blitz oben rechts -->
+  <circle cx="37" cy="10" r="6" fill="#FCD34D"/>
+  <text 
+    x="37" 
+    y="13" 
+    font-family="Arial, sans-serif" 
+    font-size="7" 
+    fill="#DC2626" 
+    text-anchor="middle"
+    font-weight="bold">⚡</text>
+</svg>

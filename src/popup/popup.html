@@ -18,7 +18,7 @@
         </svg>
         <div>
           <h1>Chrome On Steroids</h1>
-          <p class="subtitle">AI Bewerbungsassistent</p>
+          <p class="subtitle">AI-Powered Browser Automation</p>
         </div>
       </div>
     </header>
@@ -60,9 +60,22 @@
         </div>
       </section>
       
+      <!-- FreelancerMap Einstellungen (Accordion) -->
+      <section class="settings-section accordion-section">
+        <button class="accordion-header" type="button" data-target="freelancermap-settings">
+          <span class="accordion-title">
+            <span class="accordion-icon">💼</span>
+            FreelancerMap Einstellungen
+          </span>
+          <span class="accordion-chevron">▼</span>
+        </button>
+        <div class="accordion-content" id="freelancermap-settings">
+          <p class="section-description">
+            Konfiguriere dein Profil für automatische Bewerbungsanschreiben auf freelancermap.de
+          </p>
+
       <!-- Benutzerprofil -->
-      <section class="settings-section">
-        <h2>Ihr Profil</h2>
+        <h3>Ihr Profil</h3>
         
         <div class="form-group">
           <label for="user-name">Name *</label>
@@ -99,14 +112,24 @@
           <textarea id="user-portfolio" rows="4" placeholder="Relevante Projekte mit Links, z.B.:&#10;- mxster.de - Music Quiz App (React, TypeScript)&#10;- berlinometer.de - Berlin Events Platform&#10;- github.com/username/project - Beschreibung"></textarea>
           <small class="form-hint">Diese Projekte werden am Ende des Anschreibens (vor der Verabschiedung) erwähnt.</small>
         </div>
+        </div>
       </section>
       
-      <!-- Kleinanzeigen Einstellungen -->
-      <section class="settings-section">
-        <h2>Kleinanzeigen Einstellungen</h2>
-        <p class="section-description">
-          Konfiguriere automatische Kaufanfragen mit Preisvorschlag für kleinanzeigen.de
-        </p>
+      <!-- Kleinanzeigen Einstellungen (Accordion) -->
+      <section class="settings-section accordion-section">
+        <button class="accordion-header" type="button" data-target="kleinanzeigen-settings">
+          <span class="accordion-title">
+            <span class="accordion-icon">🛒</span>
+            Kleinanzeigen Einstellungen
+          </span>
+          <span class="accordion-chevron">▼</span>
+        </button>
+        <div class="accordion-content" id="kleinanzeigen-settings">
+          <p class="section-description">
+            Konfiguriere automatische Kaufanfragen und Inserat-Optimierung für kleinanzeigen.de
+          </p>
+
+        <h3>Kaufanfragen</h3>
         
         <div class="form-group">
           <label for="discount-type">Rabatt-Typ</label>
@@ -127,11 +150,8 @@
           <textarea id="message-template" rows="5" placeholder="Hallo,&#10;&#10;ich interessiere mich für &quot;{title}&quot;.&#10;&#10;Würden Sie {discounted_price}€ akzeptieren?&#10;&#10;Viele Grüße"></textarea>
           <small class="form-hint">Verfügbare Platzhalter: {title}, {price}, {discounted_price}, {seller}, {location}</small>
         </div>
-      </section>
 
-      <!-- Verkäufer-Einstellungen (für Beschreibungs-Optimierung) -->
-      <section class="settings-section">
-        <h2>Verkäufer-Einstellungen</h2>
+        <h3>Inserat-Optimierung</h3>
         <p class="section-description">
           Diese Daten werden für die automatische Optimierung deiner Inserat-Beschreibungen verwendet.
         </p>
@@ -191,6 +211,7 @@
             Fügt automatisch einen rechtssicheren Hinweis zum Privatverkauf hinzu:
             <br><em>"Da ich privat verkaufe, kann ich leider keine Garantie oder Rücknahme anbieten."</em>
           </small>
+        </div>
         </div>
       </section>
       

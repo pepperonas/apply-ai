@@ -1,0 +1,27 @@
+<svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Roter Hintergrund -->
+  <rect width="128" height="128" fill="#DC2626" rx="24"/>
+  
+  <!-- Weißer "AI" Text -->
+  <text 
+    x="64" 
+    y="85" 
+    font-family="Arial, sans-serif" 
+    font-size="56" 
+    font-weight="bold" 
+    fill="white" 
+    text-anchor="middle"
+    letter-spacing="-2">AI</text>
+  
+  <!-- Kleiner Blitz/Steroids Symbol oben rechts -->
+  <circle cx="100" cy="28" r="16" fill="#FEF3C7"/>
+  <text 
+    x="100" 
+    y="36" 
+    font-family="Arial, sans-serif" 
+    font-size="20" 
+    fill="#DC2626" 
+    text-anchor="middle"
+    font-weight="bold">⚡</text>
+</svg>
+

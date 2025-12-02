@@ -129,6 +129,34 @@ class PopupController {
     document.getElementById('clear-logs-btn')?.addEventListener('click', async () => {
       await this.clearLogs();
     });
+
+    // Accordion Toggle
+    this.initAccordion();
+  }
+
+  private initAccordion(): void {
+    const accordionHeaders = document.querySelectorAll('.accordion-header');
+    
+    accordionHeaders.forEach(header => {
+      header.addEventListener('click', () => {
+        const target = header.getAttribute('data-target');
+        const content = document.getElementById(target || '');
+        
+        if (!content) return;
+
+        // Toggle active class
+        header.classList.toggle('active');
+        content.classList.toggle('active');
+      });
+    });
+
+    // Open first accordion by default (FreelancerMap)
+    const firstHeader = document.querySelector('.accordion-header');
+    const firstContent = document.querySelector('.accordion-content');
+    if (firstHeader && firstContent) {
+      firstHeader.classList.add('active');
+      firstContent.classList.add('active');
+    }
   }
 
   private switchProvider(provider: AIProvider): void {

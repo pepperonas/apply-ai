@@ -5,7 +5,7 @@
 ### 1. Extension neu laden
 ```
 1. Öffne chrome://extensions/
-2. Finde "Chrome On Steroids - AI Bewerbungsassistent"
+2. Finde "Chrome On Steroids"
 3. Klicke auf das Reload-Icon (🔄)
 ```
 
