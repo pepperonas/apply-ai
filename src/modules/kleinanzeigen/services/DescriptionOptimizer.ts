@@ -67,6 +67,11 @@ export class DescriptionOptimizer {
       ? WARRANTY_DISCLAIMERS.friendly 
       : '';
 
+    // Baue Attribut-Informationen auf
+    const attributesInfo = this.buildAttributesInfo(adData);
+    const priceInfo = this.buildPriceInfo(adData);
+    const adTypeText = adData.adType === 'WANTED' ? 'SUCHE' : 'BIETE';
+
     return `# AUFGABE: Optimiere diese Kleinanzeigen-Beschreibung
 
 ## KONTEXT
@@ -74,13 +79,15 @@ Du bist ein Experte für erfolgreiche Kleinanzeigen auf kleinanzeigen.de.
 Deine Aufgabe ist es, die Beschreibung zu optimieren, um mehr Interessenten anzuziehen und schneller zu verkaufen.
 
 ## ORIGINAL-INSERAT
+**Anzeigentyp:** ${adTypeText} (${adData.adType === 'WANTED' ? 'Ich suche' : 'Ich biete'})
 **Titel:** ${adData.title}
-**Preis:** ${adData.price}€ ${this.getPriceType(adData.price)}
+${priceInfo}
 **Kategorie:** ${adData.category}
-${adData.condition ? `**Zustand:** ${this.getConditionText(adData.condition)}` : ''}
+${attributesInfo}
+${adData.buyNowEnabled ? '**"Direkt kaufen" aktiviert:** Festpreis ohne Verhandlung' : ''}
 
 **Aktuelle Beschreibung:**
-${adData.description}
+${adData.description || '(Noch keine Beschreibung vorhanden)'}
 
 ## VERKÄUFER-INFORMATIONEN
 **Name:** ${sellerSettings.name}
@@ -90,10 +97,16 @@ ${shippingInfo}
 ## OPTIMIERUNGS-REGELN
 
 ### Struktur (WICHTIG):
-1. **Einleitung** (1-2 Sätze): Kurze, ansprechende Beschreibung
-2. **Details** (3-5 Bulletpoints): Konkrete Eigenschaften, Zustand, Besonderheiten
+1. **Einleitung** (1-2 Sätze): ${adData.adType === 'WANTED' ? 'Was du suchst und wofür' : 'Kurze, ansprechende Beschreibung des Artikels'}
+2. **Details** (3-5 Bulletpoints): 
+   - Konkrete Eigenschaften${attributesInfo ? ' (nutze die Attribut-Infos!)' : ''}
+   - Zustand (${adData.attributes?.zustand || 'falls bekannt'})
+   - Besonderheiten, Marke, Modell
+   - ${adData.adType === 'WANTED' ? 'Gewünschte Eigenschaften' : 'Technische Details'}
 3. **Versand & Abholung** (1-2 Sätze): ${shippingInfo || 'Nur Abholung'}
-4. **Kontakt & Hinweise** (1-2 Sätze): Freundliche Aufforderung zur Kontaktaufnahme
+4. **Kontakt & Hinweise** (1-2 Sätze): 
+   - ${adData.buyNowEnabled ? 'Hinweis auf "Direkt kaufen" (schnell & sicher)' : 'Freundliche Aufforderung zur Kontaktaufnahme'}
+   - ${adData.adType === 'WANTED' ? 'Preisvorstellung oder VB' : 'Verfügbarkeit'}
 ${warrantyDisclaimer ? '5. **Rechtlicher Hinweis**: ' + warrantyDisclaimer : ''}
 
 ### Ton & Stil:
@@ -101,12 +114,15 @@ ${warrantyDisclaimer ? '5. **Rechtlicher Hinweis**: ' + warrantyDisclaimer : ''}
 - Konkret statt allgemein ("wie neu" statt "guter Zustand")
 - Ehrlich über Mängel (wenn vorhanden)
 - Keine Übertreibungen
+- ${adData.adType === 'WANTED' ? 'Klar formulieren was du suchst' : 'Verkaufsfördernde Sprache'}
 
 ### Was MUSS enthalten sein:
 - Alle wichtigen Details aus der Original-Beschreibung
-- Zustand (neu/gebraucht/defekt)
-- Abholung/Versand-Optionen
+- **Alle Attribut-Informationen** (${Object.keys(adData.attributes || {}).join(', ') || 'falls vorhanden'})
+- Zustand (${adData.attributes?.zustand || 'neu/gebraucht/defekt'})
+- Versand-Info (${adData.attributes?.versand || 'Abholung/Versand'})
 ${warrantyDisclaimer ? '- Gewährleistungsausschluss' : ''}
+${adData.buyNowEnabled ? '- Hinweis auf "Direkt kaufen" Funktion' : ''}
 
 ### Was VERMEIDEN:
 - Rechtschreibfehler
@@ -114,18 +130,18 @@ ${warrantyDisclaimer ? '- Gewährleistungsausschluss' : ''}
 - Wiederholungen
 - Unnötige Füllwörter
 - Caps Lock (außer für Marken)
+- Erfundene Details (nur nutzen was vorhanden ist!)
 
 ## BEISPIEL-STRUKTUR:
 
-Verkaufe [Artikel] in [Zustand]. [1-2 Sätze Highlights].
+${adData.adType === 'WANTED' ? 'Suche' : 'Verkaufe'} [Artikel]${adData.attributes?.zustand ? ` in ${adData.attributes.zustand}` : ''}. [1-2 Sätze Highlights].
 
 Details:
-• [Eigenschaft 1]
-• [Eigenschaft 2]
-• [Eigenschaft 3]
-• [Zustand/Mängel wenn vorhanden]
+${attributesInfo ? attributesInfo.split('\n').map(line => `• ${line.replace('**', '').replace(':', '')}`).join('\n') : '• [Eigenschaft 1]\n• [Eigenschaft 2]\n• [Eigenschaft 3]'}
+• [Weitere Details aus Beschreibung]
 
 ${shippingInfo}
+${adData.buyNowEnabled ? '\n✓ Sicherer Kauf mit "Direkt kaufen" - ohne Verhandlung zum Festpreis!' : ''}
 
 Bei Interesse einfach melden!
 
@@ -133,7 +149,8 @@ ${warrantyDisclaimer}
 
 ## AUSGABE
 Gib NUR die optimierte Beschreibung aus, ohne Kommentare oder Erklärungen.
-Maximal 4000 Zeichen.`;
+Maximal 4000 Zeichen.
+Nutze ALLE verfügbaren Informationen (Attribute, Zustand, Versand, etc.).`;
   }
 
   /**
@@ -165,23 +182,56 @@ Maximal 4000 Zeichen.`;
   }
 
   /**
-   * Ermittelt Preistyp-Text
+   * Baut Preis-Information auf
    */
-  private static getPriceType(price: number): string {
-    if (price === 0) return '(Zu verschenken)';
-    return '(VB)';
+  private static buildPriceInfo(adData: AdData): string {
+    if (adData.price === 0) {
+      return '**Preis:** Zu verschenken';
+    }
+
+    const priceTypeMap: Record<string, string> = {
+      'FIXED': 'Festpreis',
+      'NEGOTIABLE': 'VB (Verhandlungsbasis)',
+      'GIVE_AWAY': 'Zu verschenken'
+    };
+
+    const priceType = priceTypeMap[adData.priceType || 'FIXED'] || 'Festpreis';
+    return `**Preis:** ${adData.price}€ (${priceType})`;
   }
 
   /**
-   * Ermittelt Zustands-Text
+   * Baut Attribut-Informationen auf
    */
-  private static getConditionText(condition: string): string {
-    switch (condition) {
-      case 'new': return 'Neu';
-      case 'used': return 'Gebraucht';
-      case 'defective': return 'Defekt';
-      default: return condition;
+  private static buildAttributesInfo(adData: AdData): string {
+    if (!adData.attributes || Object.keys(adData.attributes).length === 0) {
+      return '';
     }
+
+    const lines: string[] = [];
+    
+    if (adData.attributes.art) {
+      lines.push(`**Art:** ${adData.attributes.art}`);
+    }
+    if (adData.attributes.typ) {
+      lines.push(`**Typ:** ${adData.attributes.typ}`);
+    }
+    if (adData.attributes.zustand) {
+      lines.push(`**Zustand:** ${adData.attributes.zustand}`);
+    }
+    if (adData.attributes.versand) {
+      lines.push(`**Versand:** ${adData.attributes.versand}`);
+    }
+
+    // Weitere Attribute
+    Object.entries(adData.attributes).forEach(([key, value]) => {
+      if (!['art', 'typ', 'zustand', 'versand'].includes(key) && value) {
+        const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
+        lines.push(`**${capitalizedKey}:** ${value}`);
+      }
+    });
+
+    return lines.join('\n');
   }
+
 }
 

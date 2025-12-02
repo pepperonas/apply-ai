@@ -24,9 +24,13 @@ export interface AdData {
   title: string;
   description: string;
   price: number;
+  priceType?: string; // FIXED, NEGOTIABLE, GIVE_AWAY
   category: string;
-  condition?: 'new' | 'used' | 'defective';
-  shippingAvailable?: boolean;
+  attributes?: Record<string, string>; // Art, Typ, Zustand, Versand, etc.
+  adType?: 'OFFER' | 'WANTED'; // Ich biete / Ich suche
+  buyNowEnabled?: boolean; // Direkt kaufen aktiviert
+  condition?: 'new' | 'used' | 'defective'; // Legacy
+  shippingAvailable?: boolean; // Legacy
 }
 
 /**

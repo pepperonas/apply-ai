@@ -191,6 +191,7 @@ export class KleinanzeigenDOMService {
       const titleInput = document.querySelector('#postad-title') as HTMLInputElement;
       const descriptionTextarea = document.querySelector('#pstad-descrptn') as HTMLTextAreaElement;
       const priceInput = document.querySelector('#micro-frontend-price, #pstad-price') as HTMLInputElement;
+      const priceTypeSelect = document.querySelector('#micro-frontend-price-type, #priceType') as HTMLSelectElement;
       const categoryPath = document.querySelector('#postad-category-path')?.textContent?.trim();
 
       if (!titleInput || !descriptionTextarea) {
@@ -202,19 +203,73 @@ export class KleinanzeigenDOMService {
       const description = descriptionTextarea.value.trim();
       const priceText = priceInput?.value || '0';
       const price = parseFloat(priceText.replace(',', '.')) || 0;
+      const priceType = priceTypeSelect?.value || 'FIXED';
+
+      // Extrahiere Attribute (Art, Typ, Zustand, etc.)
+      const attributes: Record<string, string> = {};
+      
+      // Art (z.B. Damen, Herren, Kinder)
+      const artSelect = document.querySelector('select[name*="art_s"]') as HTMLSelectElement;
+      if (artSelect && artSelect.value) {
+        attributes.art = artSelect.options[artSelect.selectedIndex]?.text || artSelect.value;
+      }
+
+      // Typ (z.B. Mountainbike, Rennrad, etc.)
+      const typeSelect = document.querySelector('select[name*="type_s"]') as HTMLSelectElement;
+      if (typeSelect && typeSelect.value) {
+        attributes.typ = typeSelect.options[typeSelect.selectedIndex]?.text || typeSelect.value;
+      }
+
+      // Zustand (Neu, Sehr Gut, Gut, etc.)
+      const conditionSelect = document.querySelector('select[name*="condition_s"]') as HTMLSelectElement;
+      const conditionRadio = document.querySelector('input[name="condition"]:checked') as HTMLInputElement;
+      if (conditionRadio && conditionRadio.value) {
+        const conditionMap: Record<string, string> = {
+          'new': 'Neu',
+          'like_new': 'Sehr Gut',
+          'ok': 'Gut',
+          'alright': 'In Ordnung',
+          'defect': 'Defekt'
+        };
+        attributes.zustand = conditionMap[conditionRadio.value] || conditionRadio.value;
+      } else if (conditionSelect && conditionSelect.value) {
+        attributes.zustand = conditionSelect.options[conditionSelect.selectedIndex]?.text || conditionSelect.value;
+      }
+
+      // Versand
+      const shippingRadio = document.querySelector('input[name="shipping-pickup"]:checked') as HTMLInputElement;
+      if (shippingRadio && shippingRadio.value) {
+        attributes.versand = shippingRadio.value === 'shipping' ? 'Versand möglich' : 'Nur Abholung';
+      }
+
+      // Anzeigentyp (Ich biete / Ich suche)
+      const adTypeRadio = document.querySelector('input[name="adType"]:checked') as HTMLInputElement;
+      const adType = adTypeRadio?.value === 'WANTED' ? 'WANTED' : 'OFFER';
+
+      // Direkt kaufen
+      const buyNowRadio = document.querySelector('input[name="buy-now"]:checked') as HTMLInputElement;
+      const buyNowEnabled = buyNowRadio?.value === 'yes';
 
       Logger.info('[Kleinanzeigen] Inserat-Daten extrahiert:', {
         title,
         descriptionLength: description.length,
         price,
-        category: categoryPath
+        priceType,
+        category: categoryPath,
+        attributes,
+        adType,
+        buyNowEnabled
       });
 
       return {
         title,
         description,
         price,
-        category: categoryPath || 'Unbekannt'
+        priceType,
+        category: categoryPath || 'Unbekannt',
+        attributes,
+        adType,
+        buyNowEnabled
       };
     } catch (error) {
       Logger.error('[Kleinanzeigen] Error extracting ad data:', error);
