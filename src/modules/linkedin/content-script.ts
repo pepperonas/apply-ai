@@ -11,10 +11,15 @@ import { Logger } from '../../shared/utils/logger';
 class LinkedInContentScript {
   private optimizeButton: HTMLElement | null = null;
   private postOptimizeButton: HTMLElement | null = null;
-  private commentOptimizeButton: HTMLElement | null = null;
+  private floatingActionButton: HTMLElement | null = null;
+  private focusedCommentEditor: HTMLElement | null = null;
   private isProcessing = false;
   private shareBoxObserver: MutationObserver | null = null;
   private commentObserver: MutationObserver | null = null;
+  private articleObserver: MutationObserver | null = null;
+  private shareBoxCheckTimeout: number | null = null;
+  private commentCheckTimeout: number | null = null;
+  private articleCheckTimeout: number | null = null;
 
   constructor() {
     Logger.info('[LinkedIn] Content Script initialized');
@@ -26,28 +31,209 @@ class LinkedInContentScript {
     // Prüfe ob wir auf der Artikel-Seite sind
     if (LinkedInDOMService.isArticleEditorPage()) {
       Logger.info('[LinkedIn] Article editor page detected! Creating optimize button...');
+      
+      // Sofortige Prüfung und mehrfache Versuche mit verschiedenen Delays
+      const tryCreateButton = () => {
+        const editor = document.querySelector('[data-test-article-editor-content-textbox]');
+        const toolbar = document.querySelector('.article-editor-toolbar');
+        if (editor || toolbar) {
+          Logger.info('[LinkedIn] Editor or toolbar found, creating button...');
+          this.createOptimizeButton();
+          return true;
+        }
+        return false;
+      };
+      
+      // Versuche sofort
+      if (!tryCreateButton()) {
+        // Mehrfache Versuche mit verschiedenen Delays
+        setTimeout(() => tryCreateButton(), 100);
+        setTimeout(() => tryCreateButton(), 300);
+        setTimeout(() => tryCreateButton(), 500);
+        setTimeout(() => tryCreateButton(), 1000);
+        setTimeout(() => tryCreateButton(), 2000);
+        setTimeout(() => tryCreateButton(), 3000);
+      }
+      
+      // Verwende auch die waitForEditor Methode als Fallback
       this.waitForEditor(() => {
         this.createOptimizeButton();
       });
+      
+      // Beobachte auch Änderungen für Artikel-Editoren (z.B. bei Navigation zu /article/edit/)
+      this.observeArticleEditor();
     }
 
     // Beobachte das Share-Box-Modal für normale Posts
     this.observeShareBox();
     
-    // Beobachte Kommentar-Editoren
-    this.observeCommentEditors();
+    // Beobachte Kommentar-Editoren mit FAB-Logik
+    this.observeCommentEditorsWithFAB();
+    
+    // Beobachte URL-Änderungen für Artikel-Editor (pushstate und popstate)
+    this.observeUrlChanges();
+  }
+  
+  /**
+   * Beobachtet URL-Änderungen für Artikel-Editor
+   */
+  private observeUrlChanges(): void {
+    // Interceptiere pushState und replaceState
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+    
+    const handleUrlChange = () => {
+      if (LinkedInDOMService.isArticleEditorPage()) {
+        Logger.info('[LinkedIn] URL changed to article editor page, checking for button...');
+        
+        // Mehrfache Versuche mit verschiedenen Delays
+        const tryCreate = () => {
+          const editor = document.querySelector('[data-test-article-editor-content-textbox]');
+          const toolbar = document.querySelector('.article-editor-toolbar');
+          
+          if ((editor || toolbar) && (!this.optimizeButton || !document.body.contains(this.optimizeButton))) {
+            Logger.info('[LinkedIn] Editor or toolbar found after URL change, creating button...');
+            this.createOptimizeButton();
+            return true;
+          }
+          return false;
+        };
+        
+        // Versuche sofort und mit Delays
+        if (!tryCreate()) {
+          setTimeout(() => tryCreate(), 200);
+          setTimeout(() => tryCreate(), 500);
+          setTimeout(() => tryCreate(), 1000);
+          setTimeout(() => tryCreate(), 2000);
+        }
+      }
+    };
+    
+    history.pushState = function(...args) {
+      originalPushState.apply(history, args);
+      setTimeout(handleUrlChange, 100);
+    };
+    
+    history.replaceState = function(...args) {
+      originalReplaceState.apply(history, args);
+      setTimeout(handleUrlChange, 100);
+    };
+    
+    window.addEventListener('popstate', handleUrlChange);
+    
+    // Prüfe auch initial, ob wir bereits auf einer Artikel-Seite sind
+    // (für den Fall, dass das Script nach dem Laden der Seite injiziert wird)
+    if (LinkedInDOMService.isArticleEditorPage()) {
+      setTimeout(handleUrlChange, 100);
+    }
+  }
+
+  /**
+   * Beobachtet den Artikel-Editor für dynamische Änderungen
+   */
+  private observeArticleEditor(): void {
+    const checkArticleEditor = () => {
+      if (!LinkedInDOMService.isArticleEditorPage()) {
+        return;
+      }
+      
+      // Prüfe ob Button bereits existiert (durchsuche alle Buttons nach dem Text)
+      const allButtons = document.querySelectorAll('.artdeco-button--secondary');
+      for (const btn of Array.from(allButtons)) {
+        const button = btn as HTMLElement;
+        const text = button.textContent?.trim() || button.innerText?.trim() || '';
+        if (text.includes('💎 Optimieren')) {
+          this.optimizeButton = button;
+          return;
+        }
+      }
+      
+      if (this.optimizeButton && document.body.contains(this.optimizeButton)) {
+        return;
+      }
+      
+      // Prüfe auf Editor ODER Toolbar (Toolbar kann auch ohne Editor vorhanden sein)
+      const editor = document.querySelector('[data-test-article-editor-content-textbox]');
+      const toolbar = document.querySelector('.article-editor-toolbar');
+      
+      if (editor || toolbar) {
+        Logger.info('[LinkedIn] Article editor or toolbar detected, creating button...', {
+          hasEditor: !!editor,
+          hasToolbar: !!toolbar
+        });
+        this.createOptimizeButton();
+      }
+    };
+    
+    // Prüfe sofort und nach Delays (mehr Versuche für bessere Erkennung)
+    checkArticleEditor();
+    setTimeout(checkArticleEditor, 100);
+    setTimeout(checkArticleEditor, 300);
+    setTimeout(checkArticleEditor, 600);
+    setTimeout(checkArticleEditor, 1000);
+    setTimeout(checkArticleEditor, 1500);
+    setTimeout(checkArticleEditor, 2000);
+    setTimeout(checkArticleEditor, 3000);
+    setTimeout(checkArticleEditor, 5000);
+    
+    this.articleObserver = new MutationObserver(() => {
+      // Debounce: Lösche vorherigen Timeout
+      if (this.articleCheckTimeout) {
+        clearTimeout(this.articleCheckTimeout);
+      }
+      
+      this.articleCheckTimeout = window.setTimeout(() => {
+        checkArticleEditor();
+      }, 500);
+    });
+
+    // Beobachte sowohl den Editor als auch die Toolbar
+    this.articleObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-test-article-editor-content-textbox', 'class']
+    });
+    
+    // Beobachte auch spezifisch die Toolbar
+    const toolbarObserver = new MutationObserver(() => {
+      if (LinkedInDOMService.isArticleEditorPage()) {
+        const toolbar = document.querySelector('.article-editor-toolbar');
+        if (toolbar && (!this.optimizeButton || !document.body.contains(this.optimizeButton))) {
+          Logger.info('[LinkedIn] Toolbar detected via MutationObserver, creating button...');
+          setTimeout(() => this.createOptimizeButton(), 100);
+        }
+      }
+    });
+    
+    toolbarObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class']
+    });
   }
 
   /**
    * Beobachtet das Share-Box-Modal für normale Posts
    */
   private observeShareBox(): void {
+    let lastCheckTime = 0;
+    const MIN_CHECK_INTERVAL = 1000; // Mindestens 1 Sekunde zwischen Checks
+    
     // Prüfe initial ob Modal bereits offen ist
     const checkInitial = () => {
-      if (LinkedInDOMService.isShareBoxOpen() && !this.postOptimizeButton) {
-        setTimeout(() => {
-          this.createPostOptimizeButton();
-        }, 300);
+      if (LinkedInDOMService.isShareBoxOpen()) {
+        // Prüfe ob bereits ein Button existiert
+        const container = LinkedInDOMService.getPostOptimizeButtonContainer();
+        if (container && !container.querySelector('.cos-post-optimize-btn')) {
+          setTimeout(() => {
+            this.createPostOptimizeButton();
+          }, 300);
+        } else if (container && container.querySelector('.cos-post-optimize-btn')) {
+          // Button existiert bereits, setze Referenz
+          this.postOptimizeButton = container.querySelector('.cos-post-optimize-btn') as HTMLElement;
+        }
       }
     };
     
@@ -58,17 +244,56 @@ class LinkedInContentScript {
     setTimeout(checkInitial, 2000);
 
     // Beobachte Änderungen am Modal
-    this.shareBoxObserver = new MutationObserver(() => {
-      if (LinkedInDOMService.isShareBoxOpen() && !this.postOptimizeButton) {
-        setTimeout(() => {
-          this.createPostOptimizeButton();
-        }, 300);
-      } else if (!LinkedInDOMService.isShareBoxOpen() && this.postOptimizeButton) {
-        // Prüfe ob Button noch im DOM ist, bevor wir ihn zurücksetzen
-        if (!document.body.contains(this.postOptimizeButton)) {
-          this.postOptimizeButton = null;
+    this.shareBoxObserver = new MutationObserver((mutations) => {
+      // Ignoriere Mutationen, die von unserem eigenen Button stammen
+      for (const mutation of mutations) {
+        for (const node of Array.from(mutation.addedNodes)) {
+          if (node instanceof HTMLElement && 
+              (node.classList.contains('cos-post-optimize-btn') || 
+               node.querySelector('.cos-post-optimize-btn'))) {
+            return; // Ignoriere unsere eigenen Änderungen
+          }
         }
       }
+      
+      // Rate limiting: Verhindere zu häufige Checks
+      const now = Date.now();
+      if (now - lastCheckTime < MIN_CHECK_INTERVAL) {
+        return;
+      }
+      lastCheckTime = now;
+      
+      // Debounce: Lösche vorherigen Timeout
+      if (this.shareBoxCheckTimeout) {
+        clearTimeout(this.shareBoxCheckTimeout);
+      }
+      
+      this.shareBoxCheckTimeout = window.setTimeout(() => {
+        // Prüfe ob Share-Box noch offen ist
+        if (!LinkedInDOMService.isShareBoxOpen()) {
+          // Share-Box ist geschlossen, prüfe ob Button noch im DOM ist
+          if (this.postOptimizeButton && !document.body.contains(this.postOptimizeButton)) {
+            this.postOptimizeButton = null;
+          }
+          return;
+        }
+        
+        // Share-Box ist offen, prüfe ob Button existiert
+        const container = LinkedInDOMService.getPostOptimizeButtonContainer();
+        if (!container) {
+          return; // Container nicht gefunden, warte auf nächsten Check
+        }
+        
+        const existingButton = container.querySelector('.cos-post-optimize-btn');
+        if (existingButton && document.body.contains(existingButton)) {
+          // Button existiert bereits, setze Referenz
+          this.postOptimizeButton = existingButton as HTMLElement;
+          return;
+        }
+        
+        // Button existiert nicht, erstelle ihn
+        this.createPostOptimizeButton();
+      }, 500);
     });
 
     this.shareBoxObserver.observe(document.body, {
@@ -80,51 +305,498 @@ class LinkedInContentScript {
   }
 
   /**
-   * Beobachtet Kommentar-Editoren (inkl. Antwort-Editoren)
+   * Beobachtet Kommentar-Editoren mit Floating Action Button (FAB) Logik
+   * Der FAB erscheint nur, wenn ein Kommentar-Editor fokussiert ist
    */
-  private observeCommentEditors(): void {
-    // Prüfe initial ob Kommentar-Editor bereits sichtbar ist
-    const checkInitial = () => {
-      if (LinkedInDOMService.isCommentEditorVisible()) {
-        Logger.info('[LinkedIn] Comment editor visible, creating button...');
-        // Versuche mehrfach mit verschiedenen Delays
-        setTimeout(() => this.createCommentOptimizeButton(), 100);
-        setTimeout(() => this.createCommentOptimizeButton(), 500);
-        setTimeout(() => this.createCommentOptimizeButton(), 1000);
+  private observeCommentEditorsWithFAB(): void {
+    // Erstelle den FAB einmalig
+    this.createFloatingActionButton();
+    
+    // Funktion zum Finden und Anhängen von Event Listenern an alle Kommentar-Editoren
+    const attachFocusListeners = () => {
+      // Ignoriere, wenn Share-Box offen ist
+      if (LinkedInDOMService.isShareBoxOpen()) {
+        return;
+      }
+      
+      // Finde alle Kommentar-Editoren
+      const editorSelectors = [
+        '.comments-comment-box [data-test-ql-editor-contenteditable="true"]',
+        '.comments-comment-box__form [data-test-ql-editor-contenteditable="true"]',
+        '.comments-comment-texteditor [data-test-ql-editor-contenteditable="true"]',
+        '.comments-comment-box .ql-editor[contenteditable="true"]',
+        '.comments-comment-box__form .ql-editor[contenteditable="true"]',
+        '.comments-comment-texteditor .ql-editor[contenteditable="true"]',
+        '.comments-comment-box [contenteditable="true"].ql-editor',
+        '.comments-comment-box__form [contenteditable="true"].ql-editor',
+        '.comments-comment-texteditor [contenteditable="true"].ql-editor',
+        '.comments-comment-box .ql-editor',
+        '.comments-comment-box__form .ql-editor',
+        '.comments-comment-texteditor .ql-editor',
+        '.comments-comment-box [contenteditable="true"]',
+        '.comments-comment-box__form [contenteditable="true"]',
+        '.comments-comment-texteditor [contenteditable="true"]',
+        '.comment-box [contenteditable="true"]',
+        '.comment-box .ql-editor',
+        '.editor-content .ql-editor[contenteditable="true"]'
+      ];
+      
+      for (const selector of editorSelectors) {
+        const editors = document.querySelectorAll(selector);
+        for (const editor of Array.from(editors)) {
+          const editorElement = editor as HTMLElement;
+          
+          // Prüfe ob Editor sichtbar ist
+          if (editorElement.offsetParent === null || 
+              editorElement.getAttribute('aria-hidden') === 'true') {
+            continue;
+          }
+          
+          // Prüfe ob bereits Listener angehängt wurden
+          if (editorElement.hasAttribute('data-cos-fab-listener')) {
+            continue;
+          }
+          
+          // Markiere als bearbeitet
+          editorElement.setAttribute('data-cos-fab-listener', 'true');
+          
+          // Handler-Funktion für Editor-Aktivierung
+          const handleEditorActivation = () => {
+            if (LinkedInDOMService.isShareBoxOpen()) {
+              return;
+            }
+            this.focusedCommentEditor = editorElement;
+            this.showFloatingActionButton();
+            Logger.info('[LinkedIn] Comment editor activated, showing FAB');
+          };
+          
+          // Focus Event: Zeige FAB und speichere Editor
+          editorElement.addEventListener('focus', handleEditorActivation, true);
+          
+          // Click Event: Zeige FAB auch bei Klick (falls Focus nicht ausgelöst wird)
+          editorElement.addEventListener('click', () => {
+            setTimeout(handleEditorActivation, 50);
+          }, true);
+          
+          // Input Event: Zeige FAB wenn Text eingegeben wird
+          editorElement.addEventListener('input', () => {
+            if (document.activeElement === editorElement || 
+                editorElement.contains(document.activeElement) ||
+                editorElement === document.activeElement) {
+              handleEditorActivation();
+            }
+          }, true);
+          
+          // Prüfe ob dieser Editor bereits fokussiert ist
+          if (document.activeElement === editorElement || 
+              editorElement.contains(document.activeElement) ||
+              editorElement === document.activeElement) {
+            handleEditorActivation();
+          }
+          
+          // Blur Event: Verstecke FAB nach kurzer Verzögerung (falls nicht zu einem anderen Editor gewechselt wird)
+          editorElement.addEventListener('blur', () => {
+            // Kurze Verzögerung, um zu prüfen, ob ein anderer Editor fokussiert wird
+            setTimeout(() => {
+              const activeElement = document.activeElement as HTMLElement;
+              // Prüfe ob ein anderer Kommentar-Editor fokussiert ist
+              const isCommentEditor = activeElement && (
+                activeElement.closest('.comments-comment-box') ||
+                activeElement.closest('.comments-comment-box__form') ||
+                activeElement.closest('.comments-comment-texteditor') ||
+                activeElement.closest('.comment-box') ||
+                activeElement.classList.contains('ql-editor') ||
+                activeElement.hasAttribute('data-test-ql-editor-contenteditable')
+              );
+              
+              if (!isCommentEditor) {
+                this.focusedCommentEditor = null;
+                this.hideFloatingActionButton();
+                Logger.info('[LinkedIn] Comment editor blurred, hiding FAB');
+              } else {
+                // Ein anderer Editor wurde fokussiert, aktualisiere Referenz
+                const newEditor = activeElement.closest('.ql-editor') || 
+                                 activeElement.closest('[contenteditable="true"]') ||
+                                 activeElement;
+                if (newEditor instanceof HTMLElement) {
+                  this.focusedCommentEditor = newEditor;
+                  this.showFloatingActionButton();
+                }
+              }
+            }, 150);
+          }, true);
+        }
       }
     };
     
-    // Mehrfache Versuche, da Kommentar-Editoren dynamisch geladen werden
-    checkInitial();
-    setTimeout(checkInitial, 500);
-    setTimeout(checkInitial, 1000);
-    setTimeout(checkInitial, 2000);
-    setTimeout(checkInitial, 3000);
-
-    // Beobachte Änderungen für Kommentar-Editoren
-    this.commentObserver = new MutationObserver(() => {
-      if (LinkedInDOMService.isCommentEditorVisible()) {
-        // Prüfe ob für den aktuellen Editor bereits ein Button existiert
-        const container = LinkedInDOMService.getCommentOptimizeButtonContainer();
-        if (container) {
-          const existingButton = container.querySelector('.cos-comment-optimize-btn');
-          if (!existingButton || !document.body.contains(existingButton)) {
-            Logger.info('[LinkedIn] Comment editor visible without button, creating button...');
-            // Versuche mehrfach mit verschiedenen Delays
-            setTimeout(() => this.createCommentOptimizeButton(), 100);
-            setTimeout(() => this.createCommentOptimizeButton(), 500);
-            setTimeout(() => this.createCommentOptimizeButton(), 1000);
+    // Initiale Anhänge
+    attachFocusListeners();
+    
+    // Globaler Click-Handler für Kommentar-Editoren (Fallback, falls Focus nicht funktioniert)
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+      
+      // Prüfe ob auf einen Kommentar-Editor geklickt wurde
+      const editor = target.closest('.ql-editor[contenteditable="true"]') ||
+                    target.closest('[data-test-ql-editor-contenteditable="true"]') ||
+                    target.closest('.comments-comment-box [contenteditable="true"]') ||
+                    target.closest('.comments-comment-box__form [contenteditable="true"]') ||
+                    target.closest('.comments-comment-texteditor [contenteditable="true"]') ||
+                    (target.hasAttribute('contenteditable') && 
+                     (target.closest('.comments-comment-box') || 
+                      target.closest('.comments-comment-box__form') ||
+                      target.closest('.comments-comment-texteditor')));
+      
+      if (editor instanceof HTMLElement && 
+          !LinkedInDOMService.isShareBoxOpen() &&
+          editor.offsetParent !== null) {
+        setTimeout(() => {
+          this.focusedCommentEditor = editor;
+          this.showFloatingActionButton();
+          Logger.info('[LinkedIn] Editor clicked, showing FAB');
+        }, 100);
+      }
+    }, true);
+    
+    // Prüfe initial, ob bereits ein Editor fokussiert ist
+    setTimeout(() => {
+      const activeElement = document.activeElement as HTMLElement;
+      if (activeElement) {
+        const isCommentEditor = activeElement.closest('.comments-comment-box') ||
+                               activeElement.closest('.comments-comment-box__form') ||
+                               activeElement.closest('.comments-comment-texteditor') ||
+                               activeElement.closest('.comment-box') ||
+                               activeElement.classList.contains('ql-editor') ||
+                               activeElement.hasAttribute('data-test-ql-editor-contenteditable');
+        
+        if (isCommentEditor && !LinkedInDOMService.isShareBoxOpen()) {
+          const editor = activeElement.closest('.ql-editor') || 
+                        activeElement.closest('[contenteditable="true"]') ||
+                        activeElement;
+          if (editor instanceof HTMLElement && editor.offsetParent !== null) {
+            this.focusedCommentEditor = editor;
+            this.showFloatingActionButton();
+            Logger.info('[LinkedIn] Initial check: Editor already focused, showing FAB');
           }
         }
       }
+    }, 500);
+    
+    // Beobachte Änderungen im DOM, um neue Editoren zu finden
+    this.commentObserver = new MutationObserver(() => {
+      // Ignoriere, wenn Share-Box offen ist
+      if (LinkedInDOMService.isShareBoxOpen()) {
+        this.hideFloatingActionButton();
+        return;
+      }
+      
+      // Debounce: Lösche vorherigen Timeout
+      if (this.commentCheckTimeout) {
+        clearTimeout(this.commentCheckTimeout);
+      }
+      
+      this.commentCheckTimeout = window.setTimeout(() => {
+        attachFocusListeners();
+        
+        // Prüfe ob aktuell fokussierter Editor noch existiert
+        if (this.focusedCommentEditor && !document.body.contains(this.focusedCommentEditor)) {
+          this.focusedCommentEditor = null;
+          this.hideFloatingActionButton();
+        }
+        
+        // Prüfe ob ein Editor bereits fokussiert ist (für bereits geöffnete Editoren)
+        const activeElement = document.activeElement as HTMLElement;
+        if (activeElement) {
+          const isCommentEditor = activeElement.closest('.comments-comment-box') ||
+                                 activeElement.closest('.comments-comment-box__form') ||
+                                 activeElement.closest('.comments-comment-texteditor') ||
+                                 activeElement.closest('.comment-box') ||
+                                 activeElement.classList.contains('ql-editor') ||
+                                 activeElement.hasAttribute('data-test-ql-editor-contenteditable');
+          
+          if (isCommentEditor && !LinkedInDOMService.isShareBoxOpen()) {
+            const editor = activeElement.closest('.ql-editor') || 
+                          activeElement.closest('[contenteditable="true"]') ||
+                          activeElement;
+            if (editor instanceof HTMLElement && editor.offsetParent !== null) {
+              this.focusedCommentEditor = editor;
+              this.showFloatingActionButton();
+            }
+          }
+        }
+      }, 300);
     });
 
     this.commentObserver.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['aria-hidden', 'class', 'style']
+      attributeFilter: ['aria-hidden', 'class', 'style', 'contenteditable']
     });
+  }
+  
+  /**
+   * Erstellt den Floating Action Button (FAB)
+   */
+  private createFloatingActionButton(): void {
+    if (this.floatingActionButton) {
+      return;
+    }
+    
+    const fab = document.createElement('button');
+    fab.className = 'cos-floating-action-button';
+    fab.innerHTML = `
+      <span class="cos-fab-icon">💎</span>
+      <span class="cos-fab-text">Optimieren</span>
+    `;
+    fab.title = 'Kommentar optimieren';
+    fab.setAttribute('aria-label', 'Kommentar optimieren');
+    
+    // Styling
+    fab.style.cssText = `
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 100000;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 28px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      opacity: 0;
+      transform: translateY(20px) scale(0.9);
+    `;
+    
+    // Hover-Effekt
+    fab.addEventListener('mouseenter', () => {
+      fab.style.transform = 'translateY(0) scale(1.05)';
+      fab.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3)';
+    });
+    
+    fab.addEventListener('mouseleave', () => {
+      if (fab.style.display !== 'none') {
+        fab.style.transform = 'translateY(0) scale(1)';
+        fab.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2)';
+      }
+    });
+    
+    // Click Event
+    fab.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Stelle sicher, dass der Editor noch fokussiert ist oder fokussiere ihn wieder
+      if (this.focusedCommentEditor && document.body.contains(this.focusedCommentEditor)) {
+        // Kurze Verzögerung, damit der Click-Event verarbeitet wird, bevor wir fokussieren
+        setTimeout(() => {
+          this.focusedCommentEditor?.focus();
+        }, 50);
+      }
+      
+      this.handleFABOptimizeClick();
+    });
+    
+    document.body.appendChild(fab);
+    this.floatingActionButton = fab;
+    
+    Logger.info('[LinkedIn] Floating Action Button created');
+  }
+  
+  /**
+   * Zeigt den Floating Action Button an
+   */
+  private showFloatingActionButton(): void {
+    if (!this.floatingActionButton) {
+      Logger.warn('[LinkedIn] FAB not created yet');
+      return;
+    }
+    
+    // Stelle sicher, dass der FAB im DOM ist
+    if (!document.body.contains(this.floatingActionButton)) {
+      document.body.appendChild(this.floatingActionButton);
+    }
+    
+    this.floatingActionButton.style.display = 'flex';
+    
+    // Animation - verwende setTimeout für bessere Kompatibilität
+    setTimeout(() => {
+      if (this.floatingActionButton) {
+        this.floatingActionButton.style.opacity = '1';
+        this.floatingActionButton.style.transform = 'translateY(0) scale(1)';
+        Logger.info('[LinkedIn] FAB shown');
+      }
+    }, 10);
+  }
+  
+  /**
+   * Versteckt den Floating Action Button
+   */
+  private hideFloatingActionButton(): void {
+    if (!this.floatingActionButton) {
+      return;
+    }
+    
+    // Animation
+    this.floatingActionButton.style.opacity = '0';
+    this.floatingActionButton.style.transform = 'translateY(20px) scale(0.9)';
+    
+    setTimeout(() => {
+      if (this.floatingActionButton) {
+        this.floatingActionButton.style.display = 'none';
+      }
+    }, 300);
+  }
+  
+  /**
+   * Behandelt Klick auf den Floating Action Button
+   */
+  private async handleFABOptimizeClick(): Promise<void> {
+    if (this.isProcessing || !this.focusedCommentEditor || !this.floatingActionButton) {
+      return;
+    }
+    
+    // Speichere Editor-Referenz und Post-Kontext VOR dem Klick (wenn Editor noch fokussiert ist)
+    const editorElement = this.focusedCommentEditor;
+    
+    // Stelle sicher, dass der Editor noch im DOM ist
+    if (!document.body.contains(editorElement)) {
+      Logger.error('[LinkedIn] Editor element no longer in DOM');
+      this.showToast('Editor nicht mehr gefunden. Bitte versuche es erneut.', 'error');
+      return;
+    }
+    
+    this.isProcessing = true;
+    const originalHTML = this.floatingActionButton.innerHTML;
+    
+    try {
+      // Loading State
+      this.floatingActionButton.innerHTML = `
+        <span class="cos-fab-icon" style="animation: spin 1s linear infinite;">⏳</span>
+        <span class="cos-fab-text">Optimiere...</span>
+      `;
+      this.floatingActionButton.style.pointerEvents = 'none';
+      
+      // Extrahiere Original-Post-Kontext basierend auf dem Editor-Element (nicht auf dem aktuell fokussierten Element)
+      const originalPostContext = LinkedInDOMService.extractOriginalPostForComment(editorElement);
+      
+      // Extrahiere Kommentar-Daten aus dem Editor-Element
+      const commentContent = editorElement.innerText?.trim() || 
+                            editorElement.textContent?.trim() || '';
+      
+      // Wenn weder Post-Kontext noch Kommentar-Text vorhanden ist, Fehler werfen
+      if (!originalPostContext && !commentContent) {
+        throw new Error('Post-Kontext konnte nicht gefunden werden und kein Kommentar-Text vorhanden. Bitte öffne einen Post und gib einen Kommentar ein.');
+      }
+      
+      // Wenn kein Post-Kontext gefunden wurde, aber Text vorhanden ist, optimiere nur den Text
+      if (!originalPostContext && commentContent) {
+        Logger.warn('[LinkedIn] Post context not found, but comment text available. Optimizing comment without context.');
+      }
+      
+      const commentData: LinkedInArticle = {
+        title: '',
+        content: commentContent
+      };
+      
+      Logger.info('[LinkedIn] Comment data extracted from focused editor:', {
+        commentLength: commentData.content.length,
+        hasPostContext: !!originalPostContext,
+        isEmpty: !commentData.content
+      });
+      
+      // Optimiere Kommentar
+      this.floatingActionButton.innerHTML = `
+        <span class="cos-fab-icon" style="animation: spin 1s linear infinite;">⏳</span>
+        <span class="cos-fab-text">KI arbeitet...</span>
+      `;
+      
+      // Optimiere Kommentar (mit oder ohne Post-Kontext)
+      const optimizedContent = await ArticleOptimizer.optimizeArticle(
+        commentData, 
+        'comment', 
+        originalPostContext || undefined
+      );
+      
+      Logger.info('[LinkedIn] Comment optimized:', {
+        originalLength: commentData.content.length,
+        optimizedLength: optimizedContent.length,
+        wasGeneratedFromContext: !commentData.content
+      });
+      
+      // Füge optimierten Content in den Editor ein (verwende gespeicherte Referenz)
+      const inserted = LinkedInDOMService.insertOptimizedContentIntoEditor(
+        editorElement,
+        optimizedContent
+      );
+      
+      // Stelle sicher, dass der Editor wieder fokussiert ist
+      setTimeout(() => {
+        editorElement.focus();
+      }, 100);
+      
+      if (!inserted) {
+        throw new Error('Kommentar konnte nicht eingefügt werden. Bitte versuche es erneut.');
+      }
+      
+      // Success State
+      this.floatingActionButton.innerHTML = `
+        <span class="cos-fab-icon">✅</span>
+        <span class="cos-fab-text">Optimiert!</span>
+      `;
+      this.floatingActionButton.style.background = 'linear-gradient(135deg, #4caf50 0%, #45a049 100%)';
+      
+      Logger.info('[LinkedIn] ✅ Comment optimized successfully');
+      
+      // Zeige Toast
+      this.showToast('Kommentar erfolgreich optimiert!', 'success');
+      
+      // Reset nach 2 Sekunden
+      setTimeout(() => {
+        if (this.floatingActionButton) {
+          this.floatingActionButton.innerHTML = originalHTML;
+          this.floatingActionButton.style.pointerEvents = 'auto';
+          this.floatingActionButton.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        }
+        this.isProcessing = false;
+      }, 2000);
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
+      Logger.error('[LinkedIn] Comment optimization error:', error);
+      
+      // Zeige Toast mit Fehlermeldung
+      this.showToast(errorMessage, 'error');
+      
+      // Error State
+      if (this.floatingActionButton) {
+        this.floatingActionButton.innerHTML = `
+          <span class="cos-fab-icon">❌</span>
+          <span class="cos-fab-text">Fehler</span>
+        `;
+        this.floatingActionButton.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+        this.floatingActionButton.title = errorMessage;
+        
+        setTimeout(() => {
+          if (this.floatingActionButton) {
+            this.floatingActionButton.innerHTML = originalHTML;
+            this.floatingActionButton.style.pointerEvents = 'auto';
+            this.floatingActionButton.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            this.floatingActionButton.title = 'Kommentar optimieren';
+          }
+          this.isProcessing = false;
+        }, 2000);
+      }
+    }
   }
 
   /**
@@ -134,7 +806,14 @@ class LinkedInContentScript {
     let attempts = 0;
     const checkEditor = () => {
       const editor = document.querySelector('[data-test-article-editor-content-textbox]');
-      if (editor) {
+      const toolbar = document.querySelector('.article-editor-toolbar');
+      
+      // Editor ODER Toolbar reicht aus, um den Button zu erstellen
+      if (editor || toolbar) {
+        Logger.info('[LinkedIn] Editor or toolbar found, executing callback', {
+          hasEditor: !!editor,
+          hasToolbar: !!toolbar
+        });
         callback();
       } else if (attempts < maxAttempts) {
         attempts++;
@@ -150,14 +829,26 @@ class LinkedInContentScript {
    * Erstellt den Optimierungs-Button
    */
   private createOptimizeButton(): void {
-    if (this.optimizeButton) {
-      return; // Button bereits vorhanden
+    if (this.optimizeButton && document.body.contains(this.optimizeButton)) {
+      return; // Button bereits vorhanden und im DOM
     }
 
     const container = LinkedInDOMService.getOptimizeButtonContainer();
     if (!container) {
       Logger.warn('[LinkedIn] Could not find button container');
       return;
+    }
+
+    // Prüfe ob bereits ein Button im Container existiert (durchsuche alle Buttons nach dem Text)
+    const allButtons = container.querySelectorAll('.artdeco-button--secondary');
+    for (const btn of Array.from(allButtons)) {
+      const button = btn as HTMLElement;
+      const text = button.textContent?.trim() || button.innerText?.trim() || '';
+      if (text.includes('💎 Optimieren')) {
+        this.optimizeButton = button;
+        Logger.info('[LinkedIn] Optimize button already exists in container');
+        return;
+      }
     }
 
     // Erstelle Button
@@ -177,10 +868,36 @@ class LinkedInContentScript {
     container.appendChild(button);
     this.optimizeButton = button;
 
-    // Füge Container zur Toolbar hinzu
-    const toolbar = document.querySelector('.article-editor-toolbar');
+    // Füge Container zur Toolbar hinzu (wenn Toolbar vorhanden ist)
+    const toolbar = document.querySelector('.article-editor-toolbar') ||
+                    document.querySelector('[class*="article-editor-toolbar"]') ||
+                    document.querySelector('[class*="toolbar"]');
+    
     if (toolbar && !toolbar.contains(container)) {
       toolbar.appendChild(container);
+      Logger.info('[LinkedIn] Button container added to toolbar');
+    } else if (!toolbar) {
+      // Wenn Toolbar noch nicht vorhanden ist, füge Container temporär zum body hinzu
+      // und versuche später, ihn zur Toolbar hinzuzufügen
+      document.body.appendChild(container);
+      Logger.info('[LinkedIn] Toolbar not found yet, button container added to body temporarily');
+      
+      // Versuche später, Container zur Toolbar hinzuzufügen
+      const tryMoveToToolbar = () => {
+        const foundToolbar = document.querySelector('.article-editor-toolbar') ||
+                            document.querySelector('[class*="article-editor-toolbar"]');
+        if (foundToolbar && document.body.contains(container)) {
+          foundToolbar.appendChild(container);
+          Logger.info('[LinkedIn] Button container moved to toolbar');
+        } else if (!foundToolbar) {
+          // Versuche es erneut nach kurzer Verzögerung
+          setTimeout(tryMoveToToolbar, 500);
+        }
+      };
+      
+      setTimeout(tryMoveToToolbar, 500);
+      setTimeout(tryMoveToToolbar, 1000);
+      setTimeout(tryMoveToToolbar, 2000);
     }
 
     Logger.info('[LinkedIn] Optimize button created');
@@ -231,101 +948,6 @@ class LinkedInContentScript {
     Logger.info('[LinkedIn] Post optimize button created and added to container');
   }
 
-  /**
-   * Erstellt den Optimierungs-Button für Kommentare (inkl. Antworten)
-   */
-  private createCommentOptimizeButton(): void {
-    Logger.info('[LinkedIn] Creating comment optimize button...');
-    const container = LinkedInDOMService.getCommentOptimizeButtonContainer();
-    if (!container) {
-      Logger.warn('[LinkedIn] Could not find comment button container');
-      return;
-    }
-
-    Logger.info('[LinkedIn] Comment button container found:', container);
-
-    // Prüfe ob Button bereits im Container existiert
-    const existingButton = container.querySelector('.cos-comment-optimize-btn');
-    if (existingButton && document.body.contains(existingButton)) {
-      Logger.info('[LinkedIn] Comment optimize button already exists in container');
-      this.commentOptimizeButton = existingButton as HTMLElement;
-      return;
-    }
-
-    // Erstelle Button
-    const button = document.createElement('button');
-    button.className = 'artdeco-button artdeco-button--secondary artdeco-button--2 cos-comment-optimize-btn';
-    button.innerHTML = `
-      <span>💎 Optimieren</span>
-    `;
-    button.style.display = 'inline-flex';
-    button.style.alignItems = 'center';
-    button.style.gap = '4px';
-    button.style.cursor = 'pointer';
-    button.style.fontSize = '13px';
-    button.style.padding = '6px 12px';
-    button.style.marginRight = '8px';
-    button.style.verticalAlign = 'middle';
-    button.title = 'Kommentar mit KI optimieren';
-
-    button.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.handleCommentOptimizeClick();
-    });
-
-    // Finde den "Posten"-Button im Container (neue LinkedIn-Struktur)
-    let postenButton: HTMLElement | null = null;
-    const allElements = container.querySelectorAll('div[role="button"], button');
-    for (const el of Array.from(allElements)) {
-      const element = el as HTMLElement;
-      const text = element.textContent?.trim() || element.innerText?.trim() || '';
-      const ariaLabel = element.getAttribute('aria-label') || '';
-      
-      if ((text === 'Posten' || text === 'posten' || text === 'Post' || text === 'post' ||
-           ariaLabel.includes('Posten') || ariaLabel.includes('posten')) &&
-          element.offsetParent !== null) {
-        postenButton = element;
-        Logger.info('[LinkedIn] Posten button found in container, text:', text);
-        break;
-      }
-    }
-    
-    // Fallback: Suche nach "Kommentieren" oder "Antworten" Button
-    if (!postenButton) {
-      const submitButtons = container.querySelectorAll('button');
-      for (const btn of Array.from(submitButtons)) {
-        const text = btn.textContent?.trim() || btn.innerText?.trim() || '';
-        if (text.includes('Kommentieren') || 
-            text.includes('Antworten') || 
-            text.includes('kommentieren') ||
-            text.includes('antworten') ||
-            btn.classList.contains('comments-comment-box__submit-button--cr')) {
-          postenButton = btn as HTMLElement;
-          Logger.info('[LinkedIn] Submit button found (Kommentieren/Antworten), text:', text);
-          break;
-        }
-      }
-    }
-
-    // Platziere den Button vor "Posten" wenn gefunden
-    if (postenButton && postenButton.parentElement === container) {
-      container.insertBefore(button, postenButton);
-      Logger.info('[LinkedIn] Optimize button inserted before Posten/Submit button');
-    } else {
-      // Fallback: Am Ende des Containers einfügen
-      container.appendChild(button);
-      Logger.info('[LinkedIn] Posten/Submit button not found, appended to container');
-    }
-    this.commentOptimizeButton = button;
-
-    Logger.info('[LinkedIn] Comment optimize button created and added to container', {
-      container: container.className,
-      buttonInDOM: document.body.contains(button),
-      containerInDOM: document.body.contains(container),
-      buttonVisible: button.offsetParent !== null
-    });
-  }
 
   /**
    * Behandelt Klick auf "Post optimieren"
@@ -437,128 +1059,6 @@ class LinkedInContentScript {
     }
   }
 
-  /**
-   * Behandelt Klick auf "Kommentar optimieren"
-   */
-  private async handleCommentOptimizeClick(): Promise<void> {
-    if (this.isProcessing || !this.commentOptimizeButton) return;
-
-    this.isProcessing = true;
-    const originalHTML = this.commentOptimizeButton.innerHTML;
-
-    try {
-      // Loading State
-      this.commentOptimizeButton.innerHTML = `
-        <svg role="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px; animation: spin 1s linear infinite;">
-          <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
-        </svg>
-        <span>Optimiere...</span>
-      `;
-      this.commentOptimizeButton.style.pointerEvents = 'none';
-
-      // Extrahiere Original-Post-Kontext (falls vorhanden)
-      const originalPostContext = LinkedInDOMService.extractOriginalPostForComment();
-      
-      if (!originalPostContext) {
-        throw new Error('Post-Kontext konnte nicht gefunden werden. Bitte öffne einen Post, um zu kommentieren.');
-      }
-
-      // Extrahiere Kommentar-Daten (kann leer sein, dann wird aus dem Kontext geantwortet)
-      const comment = LinkedInDOMService.extractCommentData();
-      
-      // Wenn kein Kommentar eingegeben wurde, erstelle ein leeres Kommentar-Objekt
-      // Die KI wird dann aus dem Post-Kontext heraus eine Antwort generieren
-      const commentData: LinkedInArticle = {
-        title: '',
-        content: comment?.content || '' // Leer, wenn kein Kommentar vorhanden
-      };
-
-      Logger.info('[LinkedIn] Comment data extracted:', {
-        commentLength: commentData.content.length,
-        hasPostContext: !!originalPostContext,
-        isEmpty: !commentData.content
-      });
-
-      // Optimiere Kommentar
-      this.commentOptimizeButton.innerHTML = `
-        <svg role="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px; animation: spin 1s linear infinite;">
-          <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
-        </svg>
-        <span>KI arbeitet...</span>
-      `;
-
-      const optimizedContent = await ArticleOptimizer.optimizeArticle(commentData, 'comment', originalPostContext);
-
-      Logger.info('[LinkedIn] Comment optimized:', {
-        originalLength: commentData.content.length,
-        optimizedLength: optimizedContent.length,
-        wasGeneratedFromContext: !commentData.content
-      });
-
-      // Füge optimierten Content ein (type = 'comment', ohne Formatierung)
-      const inserted = LinkedInDOMService.insertOptimizedContent(optimizedContent, 'comment', false);
-      if (!inserted) {
-        throw new Error('Kommentar konnte nicht eingefügt werden. Bitte versuche es erneut.');
-      }
-
-      // Success State
-      this.commentOptimizeButton.innerHTML = `
-        <svg role="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
-          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-        </svg>
-        <span>Optimiert!</span>
-      `;
-      this.commentOptimizeButton.style.backgroundColor = '#4caf50';
-      this.commentOptimizeButton.style.color = '#fff';
-
-      Logger.info('[LinkedIn] ✅ Comment optimized successfully');
-
-      // Zeige Toast
-      this.showToast('Kommentar erfolgreich optimiert!', 'success');
-
-      // Reset nach 3 Sekunden
-      setTimeout(() => {
-        if (this.commentOptimizeButton) {
-          this.commentOptimizeButton.innerHTML = originalHTML;
-          this.commentOptimizeButton.style.pointerEvents = 'auto';
-          this.commentOptimizeButton.style.backgroundColor = '';
-          this.commentOptimizeButton.style.color = '';
-        }
-        this.isProcessing = false;
-      }, 3000);
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unbekannter Fehler';
-      Logger.error('[LinkedIn] Comment optimization error:', error);
-
-      // Zeige Toast mit Fehlermeldung
-      this.showToast(errorMessage, 'error');
-
-      // Error State
-      if (this.commentOptimizeButton) {
-        this.commentOptimizeButton.innerHTML = `
-          <svg role="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 4px;">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-          </svg>
-          <span>Fehler</span>
-        `;
-        this.commentOptimizeButton.style.backgroundColor = '#f44336';
-        this.commentOptimizeButton.style.color = '#fff';
-        this.commentOptimizeButton.title = errorMessage;
-
-        setTimeout(() => {
-          if (this.commentOptimizeButton) {
-            this.commentOptimizeButton.innerHTML = originalHTML;
-            this.commentOptimizeButton.style.pointerEvents = 'auto';
-            this.commentOptimizeButton.style.backgroundColor = '';
-            this.commentOptimizeButton.style.color = '';
-            this.commentOptimizeButton.title = 'Kommentar mit KI optimieren';
-          }
-          this.isProcessing = false;
-        }, 3000);
-      }
-    }
-  }
 
   /**
    * Behandelt Klick auf "Artikel optimieren"

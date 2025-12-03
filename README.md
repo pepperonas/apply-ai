@@ -34,9 +34,15 @@ Supercharge your Chrome browser with intelligent automation powered by ChatGPT a
 ### 💼 LinkedIn Integration
 - **AI-powered content optimization** for articles, posts, and comments
 - **Article optimization** - optimize title and content with professional formatting
+  - Instant button detection (no refresh needed)
+  - Works on `/article/new/` and `/article/edit/` pages
 - **Post optimization** - enhance your LinkedIn posts for better engagement
 - **Comment optimization** - craft concise, valuable comments
-- **Context-aware responses** - generate comments from post context (even without input)
+  - **Floating Action Button (FAB)** - appears automatically when comment editor is focused
+  - **User input preservation** - your original message is optimized, not replaced
+  - **Mention preservation** - names/mentions are kept when replying to comments
+  - **Works on articles** - also works when commenting on LinkedIn articles
+- **Context-aware responses** - generate comments from post/article context (even without input)
 - **Configurable styling** - bold, italic, code blocks, quotes
 - **Highlighting intensity** - control formatting density (low, medium, high)
 - **Title optimization** - optional separate title/headline optimization for articles
@@ -304,11 +310,12 @@ Rücknahme anbieten.
 1. **Navigate to LinkedIn**
 2. **Click "Write article"** or go to `https://www.linkedin.com/article/new/`
 3. **Fill in title and content** (can be brief)
-4. **Look for the "💎 Mit AI optimieren" button** in the toolbar
+4. **Look for the "💎 Optimieren" button** in the toolbar (appears automatically, no refresh needed)
 5. **Click the button** - AI will optimize both title and content
 6. **Review and publish** your article
 
 **Features:**
+- ✅ **Instant detection** - Button appears automatically when page loads (no refresh needed)
 - ✅ **Title optimization** - Creates engaging, click-worthy headlines (if enabled)
 - ✅ **Content optimization** - Professional structure with hooks, examples, and CTAs
 - ✅ **Markdown formatting** - Bold, italic, code blocks, quotes (if enabled)
@@ -330,17 +337,21 @@ Rücknahme anbieten.
 - ✅ **Call-to-action** - Encourages comments and engagement
 
 #### Comments & Replies
-1. **Navigate to any LinkedIn post**
+1. **Navigate to any LinkedIn post or article**
 2. **Click "Comment"** or "Reply" to open comment editor
-3. **Option A: Type your comment** (can be brief) - AI will optimize it
-4. **Option B: Leave empty** - AI will generate a relevant response from the post context
-5. **Look for the "💎 Optimieren" button** next to "Kommentieren"/"Posten" button
+3. **Option A: Type your comment** (can be brief) - AI will optimize it in context of the post
+4. **Option B: Leave empty** - AI will generate a relevant response from the post/article context
+5. **Look for the floating "💎 Optimieren" button** (appears bottom-right when editor is focused)
 6. **Click the button** - AI will optimize or generate your comment
 7. **Review and post** your comment
 
 **Features:**
-- ✅ **Context-aware** - Uses original post content to generate relevant responses
+- ✅ **Floating Action Button (FAB)** - Appears automatically when comment editor is focused
+- ✅ **Context-aware** - Uses original post/article content to generate relevant responses
 - ✅ **Smart generation** - Can create comments even without user input
+- ✅ **User input preservation** - Your original message is optimized, not replaced
+- ✅ **Mention preservation** - Names/mentions are kept when replying to comments
+- ✅ **Works on articles** - Also works when commenting on LinkedIn articles
 - ✅ **Concise optimization** - Short, valuable comments (2-3 sentences, 100-300 chars)
 - ✅ **Professional tone** - Respectful and constructive
 - ✅ **Value-focused** - Adds real insights, not generic fluff

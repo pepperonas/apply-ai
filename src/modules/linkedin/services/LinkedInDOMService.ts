@@ -28,7 +28,12 @@ export class LinkedInDOMService {
 
     for (const selector of selectors) {
       const element = document.querySelector(selector) as HTMLElement;
-      if (element) {
+      if (element && element.offsetParent !== null) {
+        // Prüfe auch aria-hidden
+        const ariaHidden = element.getAttribute('aria-hidden');
+        if (ariaHidden === 'true') {
+          continue;
+        }
         // Prüfe ob Modal sichtbar ist
         if (element.getAttribute('aria-hidden') === 'false' || 
             element.offsetParent !== null) {
@@ -45,24 +50,33 @@ export class LinkedInDOMService {
    * Prüft ob ein Kommentar-Editor sichtbar ist (inkl. Antwort-Editoren)
    */
   static isCommentEditorVisible(): boolean {
+    // Ignoriere, wenn Share-Box offen ist (dann ist es kein Kommentar-Editor)
+    if (this.isShareBoxOpen()) {
+      return false;
+    }
+    
     // Verschiedene Selektoren für Kommentar-Editoren (inkl. Antwort-Editoren)
     const selectors = [
       '.comments-comment-box [data-test-ql-editor-contenteditable="true"]',
       '.comments-comment-box__form [data-test-ql-editor-contenteditable="true"]',
+      '.comments-comment-texteditor [data-test-ql-editor-contenteditable="true"]',
       '.comments-comment-box .ql-editor[contenteditable="true"]',
       '.comments-comment-box__form .ql-editor[contenteditable="true"]',
+      '.comments-comment-texteditor .ql-editor[contenteditable="true"]',
       '.comments-comment-box [contenteditable="true"].ql-editor',
       '.comments-comment-box__form [contenteditable="true"].ql-editor',
+      '.comments-comment-texteditor [contenteditable="true"].ql-editor',
       '.comments-comment-box .ql-editor',
       '.comments-comment-box__form .ql-editor',
+      '.comments-comment-texteditor .ql-editor',
       '.comments-comment-box [contenteditable="true"]',
       '.comments-comment-box__form [contenteditable="true"]',
+      '.comments-comment-texteditor [contenteditable="true"]',
       '.comments-comment-box__editor [contenteditable="true"]',
       '.comments-comment-box__editor .ql-editor',
       '.comment-box [contenteditable="true"]',
       '.comment-box .ql-editor',
-      '.editor-content .ql-editor[contenteditable="true"]',
-      '.comments-comment-texteditor .ql-editor[contenteditable="true"]'
+      '.editor-content .ql-editor[contenteditable="true"]'
     ];
 
     for (const selector of selectors) {
@@ -145,36 +159,185 @@ export class LinkedInDOMService {
 
   /**
    * Extrahiert den Original-Post, auf den geantwortet wird
+   * @param editorElement Optional: Der Kommentar-Editor, in dessen Nähe gesucht werden soll
    */
-  static extractOriginalPostForComment(): string | null {
+  static extractOriginalPostForComment(editorElement?: HTMLElement | null): string | null {
     try {
-      // Suche nach dem Post-Content in der Nähe des Kommentar-Editors
+      // Erweiterte Selektoren für Post-Content (Feed) und Artikel-Content
       const postContentSelectors = [
+        // Feed-Post Selektoren
         '.attributed-text-segment-list__content',
         '[data-test-id="main-feed-activity-card__commentary"]',
         '.feed-shared-update-v2__commentary',
         '.feed-shared-text-view__text-view',
         '.feed-shared-text-view__text',
         '.main-feed-activity-card__commentary',
-        'p[data-test-id="main-feed-activity-card__commentary"]'
+        'p[data-test-id="main-feed-activity-card__commentary"]',
+        '.feed-shared-update-v2__description',
+        '.feed-shared-text-view',
+        '.update-components-text',
+        '.feed-shared-inline-show-more-text',
+        '.feed-shared-text-view__text-view span',
+        '.feed-shared-update-v2__commentary span',
+        '[data-test-id="main-feed-activity-card__commentary"] span',
+        '.attributed-text-segment-list__content span',
+        // Artikel-Selektoren
+        '.reader-article-content',
+        '.reader-content-blocks-container',
+        '.reader-text-block__paragraph',
+        '.reader-text-block__heading-2',
+        '.reader-text-block__heading-3',
+        'article .reader-text-block__paragraph',
+        'article .reader-content-blocks-container p',
+        'article .reader-content-blocks-container h2',
+        'article .reader-content-blocks-container h3',
+        '[data-scaffold-immersive-reader-content] .reader-text-block__paragraph',
+        '[data-scaffold-immersive-reader-content] .reader-content-blocks-container'
       ];
 
-      for (const selector of postContentSelectors) {
-        const elements = document.querySelectorAll(selector);
-        for (const element of Array.from(elements)) {
-          const el = element as HTMLElement;
-          // Prüfe ob Element sichtbar ist und Text enthält
-          if (el.offsetParent !== null) {
-            const text = el.innerText?.trim() || el.textContent?.trim() || '';
-            if (text && text.length > 20) { // Mindestens 20 Zeichen, um relevante Posts zu finden
-              Logger.info('[LinkedIn] Original post found with selector:', selector, 'length:', text.length);
-              return text.substring(0, 1000); // Maximal 1000 Zeichen für den Kontext
+      // Wenn ein Editor-Element übergeben wurde, suche zuerst in dessen Nähe
+      if (editorElement) {
+        Logger.info('[LinkedIn] Searching for post context near editor element');
+        
+        // Finde den nächstgelegenen Post-Container (verschiedene Strategien)
+        let postContainer: HTMLElement | null = null;
+        
+        // Strategie 1: Suche nach bekannten Container-Klassen (Feed und Artikel)
+        const containerSelectors = [
+          // Feed-Container
+          '.feed-shared-update-v2',
+          '.main-feed-activity-card',
+          '[data-test-id="main-feed-activity-card"]',
+          '.feed-shared-update-v2__commentary',
+          '.feed-shared-update-v2__description',
+          '.feed-shared-update-v2__content',
+          '.feed-shared-update-v2__commentary-wrapper',
+          '.feed-shared-update-v2__social-actions',
+          '.feed-shared-update-v2__comments-container',
+          // Artikel-Container
+          'article',
+          '[data-scaffold-immersive-reader-content]',
+          '.reader-article-content',
+          '.reader-content-blocks-container',
+          '.reader-social-activity',
+          '.reader-social-activity__right-rail'
+        ];
+        
+        for (const containerSelector of containerSelectors) {
+          const container = editorElement.closest(containerSelector);
+          if (container) {
+            postContainer = container as HTMLElement;
+            Logger.info('[LinkedIn] Found post container with selector:', containerSelector);
+            break;
+          }
+        }
+        
+        // Strategie 2: Suche nach Parent-Elementen mit bestimmten Klassen
+        if (!postContainer) {
+          let parent = editorElement.parentElement;
+          let depth = 0;
+          while (parent && depth < 10) {
+            const classes = parent.className || '';
+            if (classes.includes('feed-shared') || 
+                classes.includes('main-feed') ||
+                classes.includes('update-v2') ||
+                parent.hasAttribute('data-test-id')) {
+              postContainer = parent;
+              Logger.info('[LinkedIn] Found post container by parent traversal');
+              break;
+            }
+            parent = parent.parentElement;
+            depth++;
+          }
+        }
+        
+        if (postContainer) {
+          Logger.info('[LinkedIn] Searching within post container');
+          
+          // Suche innerhalb des Post-Containers
+          for (const selector of postContentSelectors) {
+            try {
+              const elements = postContainer.querySelectorAll(selector);
+              for (const element of Array.from(elements)) {
+                const el = element as HTMLElement;
+                // Überspringe Kommentare (sollten nicht der Post-Content sein)
+                if (el.closest('.comments-comment-entity') || 
+                    el.closest('.comments-comment-box') ||
+                    el.closest('.feed-shared-update-v2__comments-container')) {
+                  continue;
+                }
+                
+                if (el.offsetParent !== null) {
+                  const text = el.innerText?.trim() || el.textContent?.trim() || '';
+                  if (text && text.length > 20) {
+                    Logger.info('[LinkedIn] Original post found near editor with selector:', selector, 'length:', text.length);
+                    return text.substring(0, 1000);
+                  }
+                }
+              }
+            } catch (e) {
+              Logger.debug('[LinkedIn] Error with selector:', selector, e);
             }
           }
+          
+          // Fallback: Suche nach allen Text-Elementen im Container
+          const allTextElements = postContainer.querySelectorAll('span, p, div');
+          for (const element of Array.from(allTextElements)) {
+            const el = element as HTMLElement;
+            // Überspringe Kommentare
+            if (el.closest('.comments-comment-entity') || 
+                el.closest('.comments-comment-box') ||
+                el.closest('.feed-shared-update-v2__comments-container')) {
+              continue;
+            }
+            
+            if (el.offsetParent !== null) {
+              const text = el.innerText?.trim() || el.textContent?.trim() || '';
+              // Suche nach längeren Textblöcken (wahrscheinlich Post-Content)
+              if (text && text.length > 50 && text.length < 5000) {
+                // Prüfe ob es nicht nur ein einzelnes Wort oder ein sehr kurzer Text ist
+                const words = text.split(/\s+/).filter(w => w.length > 0);
+                if (words.length > 5) {
+                  Logger.info('[LinkedIn] Original post found via fallback search, length:', text.length);
+                  return text.substring(0, 1000);
+                }
+              }
+            }
+          }
+        } else {
+          Logger.warn('[LinkedIn] Could not find post container near editor');
         }
       }
 
-      Logger.debug('[LinkedIn] No original post found for comment context');
+      // Fallback: Suche im gesamten Dokument (aber ignoriere Kommentare)
+      Logger.info('[LinkedIn] Falling back to document-wide search');
+      for (const selector of postContentSelectors) {
+        try {
+          const elements = document.querySelectorAll(selector);
+          for (const element of Array.from(elements)) {
+            const el = element as HTMLElement;
+            // Überspringe Kommentare
+            if (el.closest('.comments-comment-entity') || 
+                el.closest('.comments-comment-box') ||
+                el.closest('.feed-shared-update-v2__comments-container')) {
+              continue;
+            }
+            
+            // Prüfe ob Element sichtbar ist und Text enthält
+            if (el.offsetParent !== null) {
+              const text = el.innerText?.trim() || el.textContent?.trim() || '';
+              if (text && text.length > 20) {
+                Logger.info('[LinkedIn] Original post found with selector:', selector, 'length:', text.length);
+                return text.substring(0, 1000);
+              }
+            }
+          }
+        } catch (e) {
+          Logger.debug('[LinkedIn] Error with selector:', selector, e);
+        }
+      }
+
+      Logger.warn('[LinkedIn] No original post found for comment context');
       return null;
     } catch (error) {
       Logger.error('[LinkedIn] Error extracting original post:', error);
@@ -191,18 +354,22 @@ export class LinkedInDOMService {
       const editorSelectors = [
         '.comments-comment-box [data-test-ql-editor-contenteditable="true"]',
         '.comments-comment-box__form [data-test-ql-editor-contenteditable="true"]',
+        '.comments-comment-texteditor [data-test-ql-editor-contenteditable="true"]',
         '.comments-comment-box .ql-editor[contenteditable="true"]',
         '.comments-comment-box__form .ql-editor[contenteditable="true"]',
+        '.comments-comment-texteditor .ql-editor[contenteditable="true"]',
         '.comments-comment-box [contenteditable="true"].ql-editor',
         '.comments-comment-box__form [contenteditable="true"].ql-editor',
+        '.comments-comment-texteditor [contenteditable="true"].ql-editor',
         '.comments-comment-box .ql-editor',
         '.comments-comment-box__form .ql-editor',
+        '.comments-comment-texteditor .ql-editor',
         '.comments-comment-box [contenteditable="true"]',
         '.comments-comment-box__form [contenteditable="true"]',
+        '.comments-comment-texteditor [contenteditable="true"]',
         '.comment-box [contenteditable="true"]',
         '.comment-box .ql-editor',
-        '.editor-content .ql-editor[contenteditable="true"]',
-        '.comments-comment-texteditor .ql-editor[contenteditable="true"]'
+        '.editor-content .ql-editor[contenteditable="true"]'
       ];
 
       let quillEditor: HTMLElement | null = null;
@@ -307,16 +474,20 @@ export class LinkedInDOMService {
           '.comment-box .ql-editor[contenteditable="true"]',
           '.comments-comment-box [data-test-ql-editor-contenteditable="true"]',
           '.comments-comment-box__form [data-test-ql-editor-contenteditable="true"]',
+          '.comments-comment-texteditor [data-test-ql-editor-contenteditable="true"]',
           '.comments-comment-box .ql-editor[contenteditable="true"]',
           '.comments-comment-box__form .ql-editor[contenteditable="true"]',
+          '.comments-comment-texteditor .ql-editor[contenteditable="true"]',
           '.comments-comment-box [contenteditable="true"].ql-editor',
           '.comments-comment-box__form [contenteditable="true"].ql-editor',
+          '.comments-comment-texteditor [contenteditable="true"].ql-editor',
           '.comments-comment-box .ql-editor',
           '.comments-comment-box__form .ql-editor',
+          '.comments-comment-texteditor .ql-editor',
           '.comments-comment-box [contenteditable="true"]',
           '.comments-comment-box__form [contenteditable="true"]',
+          '.comments-comment-texteditor [contenteditable="true"]',
           '.editor-content .ql-editor[contenteditable="true"]',
-          '.comments-comment-texteditor .ql-editor[contenteditable="true"]',
           // Generische Selektoren als letzter Fallback
           'div[contenteditable="true"][aria-label*="Kommentieren"]',
           'div[contenteditable="true"][aria-label*="kommentieren"]',
@@ -390,6 +561,119 @@ export class LinkedInDOMService {
       return true;
     } catch (error) {
       Logger.error('[LinkedIn] Error inserting content:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Fügt optimierten Content direkt in einen spezifischen Editor ein (für FAB)
+   * Behält Erwähnungen/Mentions bei, die vor dem Text stehen
+   */
+  static insertOptimizedContentIntoEditor(editorElement: HTMLElement, optimizedContent: string): boolean {
+    try {
+      if (!editorElement) {
+        Logger.error('[LinkedIn] Editor element is null');
+        return false;
+      }
+
+      // Strategie: Finde Erwähnungen und behalte sie, ersetze nur den Text-Content
+      // LinkedIn speichert Erwähnungen oft im ersten <p> Element oder als spezielle Elemente
+      const allParagraphs = editorElement.querySelectorAll('p');
+      let mentionParagraph: HTMLElement | null = null;
+      let mentionContent = '';
+      
+      // Suche nach dem ersten <p> Element, das Erwähnungen enthält
+      for (const p of Array.from(allParagraphs)) {
+        const pEl = p as HTMLElement;
+        const innerHTML = pEl.innerHTML;
+        
+        // Prüfe ob dieses <p> Erwähnungen enthält (Links zu Profilen, spezielle Attribute)
+        const hasMention = pEl.querySelector('a[href*="/in/"], a[href*="/company/"], span[data-linkedin-type], a[data-linkedin-type], span.mention, a.mention') ||
+                          innerHTML.includes('data-linkedin-type') ||
+                          innerHTML.includes('data-entity-type');
+        
+        if (hasMention) {
+          mentionParagraph = pEl;
+          mentionContent = innerHTML;
+          Logger.info('[LinkedIn] Found mention paragraph:', mentionContent.substring(0, 100));
+          break;
+        }
+      }
+      
+      // Alternative: Suche nach Erwähnungen in allen Elementen
+      if (!mentionParagraph) {
+        const mentionSelectors = [
+          'a[href*="/in/"]',
+          'a[href*="/company/"]',
+          'span[data-linkedin-type]',
+          'a[data-linkedin-type]',
+          'span.mention',
+          'a.mention',
+          'span[data-entity-type="person"]',
+          'a[data-entity-type="person"]'
+        ];
+        
+        for (const selector of mentionSelectors) {
+          const mentionEl = editorElement.querySelector(selector);
+          if (mentionEl) {
+            mentionContent = (mentionEl as HTMLElement).outerHTML;
+            Logger.info('[LinkedIn] Found mention element:', mentionContent.substring(0, 100));
+            break;
+          }
+        }
+      }
+
+      // Für Kommentare: Einfacher Text ohne Formatierung
+      // Einfache Text-Formatierung - Zeilenumbrüche beibehalten
+      const paragraphs = optimizedContent.split('\n\n').filter(p => p.trim());
+      const optimizedHTML = paragraphs.map(p => `<p>${p.trim().replace(/\n/g, '<br>')}</p>`).join('');
+      
+      // Wenn Erwähnungen gefunden wurden, füge sie vor dem optimierten Text ein
+      let finalHTML: string;
+      if (mentionContent) {
+        // Erstelle HTML mit Erwähnung + optimiertem Text
+        // Wenn mentionParagraph existiert, verwende dessen Struktur
+        if (mentionParagraph) {
+          // Behalte die Erwähnung im ersten <p>, füge optimierten Text in neue <p> ein
+          finalHTML = `<p>${mentionContent}</p>${optimizedHTML}`;
+        } else {
+          // Füge Erwähnung als erstes Element ein
+          finalHTML = `<p>${mentionContent} </p>${optimizedHTML}`;
+        }
+      } else {
+        finalHTML = optimizedHTML;
+      }
+      
+      // Setze den Inhalt
+      editorElement.innerHTML = finalHTML;
+      
+      // Für Quill: Trigger verschiedene Events für Update
+      const inputEvent = new Event('input', { bubbles: true });
+      const changeEvent = new Event('change', { bubbles: true });
+      const keyupEvent = new KeyboardEvent('keyup', { bubbles: true, key: 'Enter' });
+      
+      editorElement.dispatchEvent(inputEvent);
+      editorElement.dispatchEvent(changeEvent);
+      editorElement.dispatchEvent(keyupEvent);
+      
+      // Hinweis: Wir verwenden innerHTML, um Erwähnungen als HTML zu behalten
+      // textContent würde Erwähnungen als Text darstellen, daher verwenden wir nur innerHTML
+
+      // Trigger Events für React/Ember
+      editorElement.dispatchEvent(new Event('input', { bubbles: true }));
+      editorElement.dispatchEvent(new Event('change', { bubbles: true }));
+      editorElement.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+      
+      // Focus setzen
+      editorElement.focus();
+
+      Logger.info('[LinkedIn] Optimized content inserted into specific editor', {
+        hasMention: !!mentionContent,
+        contentLength: optimizedContent.length
+      });
+      return true;
+    } catch (error) {
+      Logger.error('[LinkedIn] Error inserting content into editor:', error);
       return false;
     }
   }
@@ -485,8 +769,37 @@ export class LinkedInDOMService {
     // Suche nach der Toolbar-Gruppe, wo wir den Button hinzufügen können
     const toolbar = document.querySelector('.article-editor-toolbar');
     if (!toolbar) {
-      Logger.warn('[LinkedIn] Toolbar not found');
-      return null;
+      Logger.warn('[LinkedIn] Toolbar not found, trying alternative selectors...');
+      
+      // Alternative Selektoren für Toolbar
+      const alternativeSelectors = [
+        '.article-editor-toolbar',
+        '[class*="article-editor-toolbar"]',
+        '[class*="toolbar"]',
+        '.editor-toolbar'
+      ];
+      
+      for (const selector of alternativeSelectors) {
+        const altToolbar = document.querySelector(selector);
+        if (altToolbar) {
+          Logger.info('[LinkedIn] Found toolbar with alternative selector:', selector);
+          const buttonGroup = document.createElement('div');
+          buttonGroup.className = 'article-editor-toolbar__button-group';
+          buttonGroup.style.marginLeft = '16px';
+          buttonGroup.style.paddingLeft = '16px';
+          buttonGroup.style.borderLeft = '1px solid rgba(0, 0, 0, 0.15)';
+          return buttonGroup;
+        }
+      }
+      
+      // Fallback: Erstelle Container direkt im body (wird später zur Toolbar hinzugefügt)
+      Logger.warn('[LinkedIn] Toolbar not found, creating fallback container');
+      const buttonGroup = document.createElement('div');
+      buttonGroup.className = 'article-editor-toolbar__button-group';
+      buttonGroup.style.marginLeft = '16px';
+      buttonGroup.style.paddingLeft = '16px';
+      buttonGroup.style.borderLeft = '1px solid rgba(0, 0, 0, 0.15)';
+      return buttonGroup;
     }
 
     // Erstelle einen Container für unseren Button
@@ -570,42 +883,131 @@ export class LinkedInDOMService {
   static getCommentOptimizeButtonContainer(): HTMLElement | null {
     Logger.info('[LinkedIn] Searching for comment button container...');
     
-    // Suche zuerst nach "Posten"-Button (neue LinkedIn-Struktur für Kommentar-Editor)
-    let postenButton: HTMLElement | null = null;
+    // WICHTIG: Zuerst den sichtbaren Kommentar-Editor finden, dann den zugehörigen Button
+    // Dies stellt sicher, dass wir den richtigen Button für den aktuellen Editor finden
+    let visibleEditor: HTMLElement | null = null;
     
-    // Suche nach "Posten"-Button anhand des Textes
-    Logger.info('[LinkedIn] Searching for "Posten" button...');
-    const allElements = document.querySelectorAll('div[role="button"], button');
+    const editorSelectors = [
+      '.comments-comment-box [data-test-ql-editor-contenteditable="true"]',
+      '.comments-comment-box__form [data-test-ql-editor-contenteditable="true"]',
+      '.comments-comment-texteditor [data-test-ql-editor-contenteditable="true"]',
+      '.comments-comment-box .ql-editor[contenteditable="true"]',
+      '.comments-comment-box__form .ql-editor[contenteditable="true"]',
+      '.comments-comment-texteditor .ql-editor[contenteditable="true"]',
+      '.comments-comment-box [contenteditable="true"].ql-editor',
+      '.comments-comment-box__form [contenteditable="true"].ql-editor',
+      '.comments-comment-texteditor [contenteditable="true"].ql-editor',
+      '.comments-comment-box .ql-editor',
+      '.comments-comment-box__form .ql-editor',
+      '.comments-comment-texteditor .ql-editor',
+      '.comments-comment-box [contenteditable="true"]',
+      '.comments-comment-box__form [contenteditable="true"]',
+      '.comments-comment-texteditor [contenteditable="true"]',
+      '.comment-box [contenteditable="true"]',
+      '.comment-box .ql-editor',
+      '.editor-content .ql-editor[contenteditable="true"]'
+    ];
+    
+    // Finde den sichtbaren Editor
+    for (const selector of editorSelectors) {
+      const elements = document.querySelectorAll(selector);
+      for (const element of Array.from(elements)) {
+        const editor = element as HTMLElement;
+        if (editor && 
+            editor.getAttribute('aria-hidden') !== 'true' &&
+            editor.offsetParent !== null) {
+          visibleEditor = editor;
+          Logger.info('[LinkedIn] Found visible comment editor with selector:', selector);
+          break;
+        }
+      }
+      if (visibleEditor) break;
+    }
+    
+    if (!visibleEditor) {
+      Logger.warn('[LinkedIn] No visible comment editor found');
+      return null;
+    }
+    
+    // Suche den zugehörigen "Kommentieren"/"Posten"-Button innerhalb des gleichen Formulars/Containers
+    let targetButton: HTMLElement | null = null;
+    
+    // Finde das Formular oder den Container, der den Editor enthält
+    const editorForm = visibleEditor.closest('form') as HTMLElement | null;
+    const editorContainer = visibleEditor.closest('.comments-comment-box__form') as HTMLElement | null;
+    const searchContainer = editorForm || editorContainer || visibleEditor.parentElement;
+    
+    if (!searchContainer) {
+      Logger.warn('[LinkedIn] Could not find container for editor');
+      return null;
+    }
+    
+    Logger.info('[LinkedIn] Searching for "Posten" or "Kommentieren" button within editor container...');
+    
+    // Suche nur innerhalb des Containers, der den Editor enthält
+    const allElements = searchContainer.querySelectorAll('div[role="button"], button');
     for (const el of Array.from(allElements)) {
       const element = el as HTMLElement;
       const text = element.textContent?.trim() || element.innerText?.trim() || '';
       const ariaLabel = element.getAttribute('aria-label') || '';
+      const className = element.className || '';
       
+      // Prüfe auf "Posten" oder "Kommentieren" Button
+      // WICHTIG: Ignoriere Buttons mit "comment-button" Klasse, die sind für andere Kommentare
       if ((text === 'Posten' || text === 'posten' || text === 'Post' || text === 'post' ||
-           ariaLabel.includes('Posten') || ariaLabel.includes('posten')) &&
+           text === 'Kommentieren' || text === 'kommentieren' ||
+           ariaLabel.includes('Posten') || ariaLabel.includes('posten') ||
+           ariaLabel.includes('Kommentieren') || ariaLabel.includes('kommentieren') ||
+           className.includes('comments-comment-box__submit-button') ||
+           className.includes('comments-comment-box__submit-button--cr') ||
+           className.includes('submit-button')) &&
+          !className.includes('comment-button') && // Ignoriere Buttons für andere Kommentare
           element.offsetParent !== null) {
-        postenButton = element;
-        Logger.info('[LinkedIn] Posten button found, text:', text);
+        targetButton = element;
+        Logger.info('[LinkedIn] Target button found within editor container, text:', text, 'class:', className);
         break;
       }
     }
     
-    // Wenn "Posten"-Button gefunden, finde den Container daneben
-    if (postenButton) {
+    // Wenn Button gefunden, finde den Container daneben
+    if (targetButton) {
+      // Suche zuerst nach dem direkten Parent-Container (display-flex align-items-center)
+      let container = targetButton.parentElement;
+      if (container) {
+        const classes = container.className || '';
+        const style = window.getComputedStyle(container);
+        if ((classes.includes('display-flex') && classes.includes('align-items-center')) ||
+            (style.display === 'flex' && style.alignItems === 'center')) {
+          Logger.info('[LinkedIn] Found flex container for button:', classes);
+          const existingBtn = container.querySelector('.cos-comment-optimize-btn');
+          if (existingBtn) {
+            Logger.info('[LinkedIn] Optimize button already exists');
+            return container;
+          }
+          return container;
+        }
+      }
+      
       // Suche nach dem Form-Container oder dem Parent-Container
-      let container = postenButton.closest('form') as HTMLElement | null;
+      container = targetButton.closest('form') as HTMLElement | null;
+      
+      // Spezielle Suche nach comments-comment-box__form
+      if (!container) {
+        container = targetButton.closest('.comments-comment-box__form') as HTMLElement | null;
+      }
       
       if (!container) {
-        // Suche nach einem Container mit flex/display-flex, der den Posten-Button enthält
-        container = postenButton.parentElement;
+        // Suche nach einem Container mit flex/display-flex, der den Button enthält
+        container = targetButton.parentElement;
         while (container) {
           const classes = container.className || '';
           const style = window.getComputedStyle(container);
           if (classes.includes('flex') || 
               classes.includes('display-flex') ||
+              classes.includes('comments-comment-box__form') ||
               style.display === 'flex' ||
               container.tagName.toLowerCase() === 'form') {
-            Logger.info('[LinkedIn] Posten button container found');
+            Logger.info('[LinkedIn] Target button container found:', classes);
             
             const existingBtn = container.querySelector('.cos-comment-optimize-btn');
             if (existingBtn) {
@@ -618,7 +1020,7 @@ export class LinkedInDOMService {
           container = container.parentElement;
         }
       } else {
-        Logger.info('[LinkedIn] Form container found for Posten button');
+        Logger.info('[LinkedIn] Form container found for target button');
         const existingBtn = container.querySelector('.cos-comment-optimize-btn');
         if (existingBtn) {
           Logger.info('[LinkedIn] Optimize button already exists');
@@ -628,9 +1030,9 @@ export class LinkedInDOMService {
       }
       
       // Fallback: Direkter Parent
-      if (postenButton.parentElement) {
-        Logger.info('[LinkedIn] Using direct parent of Posten button as container');
-        return postenButton.parentElement;
+      if (targetButton.parentElement) {
+        Logger.info('[LinkedIn] Using direct parent of target button as container');
+        return targetButton.parentElement;
       }
     }
     

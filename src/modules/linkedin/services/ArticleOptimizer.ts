@@ -46,14 +46,74 @@ export class ArticleOptimizer {
    * Erstellt einen spezifischen Prompt für Kommentare/Antworten
    */
   private static buildCommentPrompt(comment: LinkedInArticle, originalPostContext?: string): string {
-    if (!originalPostContext) {
-      throw new Error('Post-Kontext fehlt. Bitte öffne einen Post, um zu kommentieren.');
-    }
-
     const hasUserInput = comment.content && comment.content.trim().length > 0;
+    
+    // Wenn kein Post-Kontext vorhanden ist, aber Text eingegeben wurde, optimiere nur den Text
+    if (!originalPostContext && !hasUserInput) {
+      throw new Error('Post-Kontext fehlt und kein Kommentar-Text vorhanden. Bitte öffne einen Post und gib einen Kommentar ein.');
+    }
+    
+    // Wenn kein Post-Kontext vorhanden ist, aber Text vorhanden ist, optimiere nur den Text
+    if (!originalPostContext && hasUserInput) {
+      return `# AUFGABE: Optimiere diesen LinkedIn-Kommentar
+
+## KONTEXT
+Du bist ein Experte für erfolgreiche LinkedIn-Kommentare. Deine Aufgabe ist es, einen Kommentar zu optimieren, den der Benutzer bereits eingegeben hat.
+
+## DEIN KOMMENTAR (der optimiert werden soll)
+${comment.content}
+
+**WICHTIG:** 
+- BEHALTE die Kernaussage und den Gedanken des Benutzers bei
+- VERBESSERE die Formulierung, Struktur und Klarheit
+- Die optimierte Version soll die ursprüngliche Intention widerspiegeln, aber professioneller formuliert sein
+
+## WICHTIG: Kommentar-Optimierung
+
+### Was einen guten Kommentar ausmacht:
+- ✅ **Kurz und prägnant** - max. 2-3 Sätze (100-300 Zeichen)
+- ✅ **Wertvoll** - fügt echten Mehrwert hinzu (Perspektive, Erfahrung, Frage, Ergänzung)
+- ✅ **Natürlich und authentisch** - klingt wie eine echte menschliche Antwort
+- ✅ **Konkret statt vage** - spezifische Aussagen statt Floskeln
+
+### Was VERMEIDEN:
+- ❌ **Generische Floskeln** - "Sehr gut!", "Interessant!", "Danke fürs Teilen!" (ohne Mehrwert)
+- ❌ **Selbstreferenzielle Texte** - "Als LinkedIn-Experte empfehle ich..." (klingt wie Spam)
+- ❌ **Zu lang** - mehr als 3 Sätze
+- ❌ **Marketing-Sprech** - "Lass uns gemeinsam daran arbeiten..."
+- ❌ **Hashtags** - Kommentare haben keine Hashtags
+- ❌ **Call-to-Actions** - keine Aufforderungen zum Teilen/Liken
+
+### Ton & Stil:
+- Authentisch und natürlich
+- Respektvoll und konstruktiv
+- Konkret statt vage
+- Kurz und prägnant
+
+## AUSGABE
+Gib NUR den optimierten Kommentar aus, ohne Kommentare oder Erklärungen.
+Maximal 300 Zeichen (2-3 Sätze).
+Der Text muss in der GLEICHEN SPRACHE wie das Original sein! KEINE ÜBERSETZUNG!
+
+## QUALITÄTSKONTROLLE (VOR AUSGABE):
+✓ Prüfe dass der Kommentar kurz ist (max. 2-3 Sätze, 100-300 Zeichen)
+✓ Prüfe dass der Kommentar wertvoll ist (keine generischen Floskeln)
+✓ Prüfe Rechtschreibung
+✓ Prüfe dass der Kommentar natürlich klingt
+✓ Prüfe dass keine Hashtags enthalten sind
+✓ Prüfe dass keine Call-to-Actions enthalten sind
+✓ Prüfe dass die Sprache beibehalten wurde`;
+    }
     const userInputSection = hasUserInput ? `
 ## DEINE ANTWORT (die optimiert werden soll)
 ${comment.content}
+
+**WICHTIG:** 
+- Diese Antwort wurde vom Benutzer bereits eingegeben und soll optimiert werden
+- BEHALTE die Kernaussage und den Gedanken des Benutzers bei
+- VERBESSERE die Formulierung, Struktur und Klarheit
+- STELLE den Bezug zum Original-Post her, wenn noch nicht vorhanden
+- Die optimierte Antwort soll die ursprüngliche Intention des Benutzers widerspiegeln, aber professioneller und wertvoller formuliert sein
 ` : `
 ## HINWEIS
 Der Benutzer hat noch keine Antwort eingegeben. Generiere eine passende Antwort basierend auf dem Original-Post.
@@ -62,7 +122,7 @@ Der Benutzer hat noch keine Antwort eingegeben. Generiere eine passende Antwort 
     return `# AUFGABE: ${hasUserInput ? 'Optimiere diese' : 'Erstelle eine'} LinkedIn-Antwort/Kommentar
 
 ## KONTEXT
-Du bist ein Experte für erfolgreiche LinkedIn-Kommentare und Antworten. Deine Aufgabe ist es, ${hasUserInput ? 'eine Antwort zu optimieren' : 'eine passende Antwort zu erstellen'}, die auf einen bestehenden Post reagiert.
+Du bist ein Experte für erfolgreiche LinkedIn-Kommentare und Antworten. Deine Aufgabe ist es, ${hasUserInput ? 'eine Antwort zu optimieren, die der Benutzer bereits eingegeben hat' : 'eine passende Antwort zu erstellen'}, die auf einen bestehenden Post reagiert.
 
 ## ORIGINAL-POST (auf den geantwortet wird)
 ${originalPostContext}
@@ -87,6 +147,7 @@ ${userInputSection}
 2. **Kurze, prägnante Aussage** - direkt zum Punkt, keine langen Ausführungen
 3. **Mehrwert** - fügt etwas hinzu: Perspektive, Erfahrung, Frage, Ergänzung, konstruktive Kritik
 4. **Natürlich und authentisch** - klingt wie eine echte menschliche Antwort
+${hasUserInput ? `5. **Beibehaltung der Kernaussage** - die ursprüngliche Intention und der Gedanke des Benutzers bleiben erhalten, nur die Formulierung wird verbessert` : ''}
 
 ### Struktur einer guten Antwort:
 1. **Bezug herstellen** (optional, 1 Satz): Kurze Referenz zum Post
@@ -129,6 +190,7 @@ Gib NUR die optimierte Antwort aus, ohne Kommentare oder Erklärungen.
 Maximal 300 Zeichen (2-3 Sätze).
 Der Text muss in der GLEICHEN SPRACHE wie das Original sein! KEINE ÜBERSETZUNG!
 Die Antwort muss sich auf den Original-Post beziehen und relevant sein!
+${hasUserInput ? '**WICHTIG:** Die optimierte Antwort soll die ursprüngliche Aussage des Benutzers im Kontext des Posts verwerten und verbessern, nicht ersetzen!' : ''}
 
 ## QUALITÄTSKONTROLLE (VOR AUSGABE):
 ✓ Prüfe dass die Antwort kurz ist (max. 2-3 Sätze, 100-300 Zeichen)
