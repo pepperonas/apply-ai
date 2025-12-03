@@ -270,5 +270,4 @@ Der alte Code wurde wie folgt migriert:
 ## 📚 Weitere Dokumentation
 
 - [README.md](README.md): Allgemeine Übersicht & Installation
-- [OPTIMIZATION_SUMMARY.md](OPTIMIZATION_SUMMARY.md): Prompt-Optimierungen für FreelancerMap
 
