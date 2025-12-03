@@ -34,12 +34,14 @@ jobs:
           VERSION=$(node -p "require('./dist/manifest.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Extension version: $VERSION"
+          echo "::notice title=Version::Built version $VERSION"
 
       - name: Create release archive
         run: |
           cd dist
-          zip -r ../chrome-on-steroids-v${{ steps.version.outputs.version }}.zip . -x "*.map" "*.d.ts"
+          zip -r ../chrome-on-steroids-v${{ steps.version.outputs.version }}.zip . -x "*.map" "*.d.ts" "*.d.ts.map"
           cd ..
+          ls -lh chrome-on-steroids-v${{ steps.version.outputs.version }}.zip
 
       - name: Create or update latest release
         id: create_release
