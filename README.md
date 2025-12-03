@@ -32,7 +32,7 @@ Supercharge your Chrome browser with intelligent automation powered by ChatGPT a
 - **Supports both "Offer" and "Wanted" listings**
 
 ### 💼 LinkedIn Integration
-- **AI-powered content optimization** for articles, posts, and comments
+- **AI-powered content optimization** for articles, posts, comments, and chat messages
 - **Article optimization** - optimize title and content with professional formatting
   - Instant button detection (no refresh needed)
   - Works on `/article/new/` and `/article/edit/` pages
@@ -42,12 +42,18 @@ Supercharge your Chrome browser with intelligent automation powered by ChatGPT a
   - **User input preservation** - your original message is optimized, not replaced
   - **Mention preservation** - names/mentions are kept when replying to comments
   - **Works on articles** - also works when commenting on LinkedIn articles
+- **Chat optimization** - generate context-aware responses for LinkedIn messages
+  - Configurable chat goals (networking, sales, collaboration, etc.)
+  - Product information for sales conversations
 - **Context-aware responses** - generate comments from post/article context (even without input)
 - **Configurable styling** - bold, italic, code blocks, quotes
 - **Highlighting intensity** - control formatting density (low, medium, high)
 - **Title optimization** - optional separate title/headline optimization for articles
 - **Markdown to HTML conversion** - automatic formatting for LinkedIn's rich text editor
 - **Smart language preservation** - maintains original language (no translation)
+- **Ansprache-Form wählen** - Normaler Klick = "du", Longpress (2s) = "Sie"
+  - Visual Feedback: Button wird rot bei Longpress
+  - Funktioniert für alle Optimierungen (Artikel, Posts, Kommentare, Chat)
 
 ### 📸 Instagram Integration
 - **Comment optimization** - optimize your Instagram comments with AI
@@ -311,7 +317,7 @@ Rücknahme anbieten.
 2. **Click "Write article"** or go to `https://www.linkedin.com/article/new/`
 3. **Fill in title and content** (can be brief)
 4. **Look for the "💎 Optimieren" button** in the toolbar (appears automatically, no refresh needed)
-5. **Click the button** - AI will optimize both title and content
+5. **Click the button** (or **longpress for 2 seconds** for "Sie"-Form) - AI will optimize both title and content
 6. **Review and publish** your article
 
 **Features:**
@@ -321,13 +327,14 @@ Rücknahme anbieten.
 - ✅ **Markdown formatting** - Bold, italic, code blocks, quotes (if enabled)
 - ✅ **Language preservation** - Maintains original language (no translation)
 - ✅ **LinkedIn best practices** - Optimized for engagement and reach
+- ✅ **Ansprache-Form wählen** - Normaler Klick = "du", Longpress (2s) = "Sie"
 
 #### Posts
 1. **Navigate to LinkedIn feed**
 2. **Click "Start a post"** to open the share box
 3. **Type your post content** (can be brief)
-4. **Look for the "💎 Mit AI optimieren" button** next to "Post" button
-5. **Click the button** - AI will optimize your post
+4. **Look for the "💎 Optimieren" button** next to "Post" button
+5. **Click the button** (or **longpress for 2 seconds** for "Sie"-Form) - AI will optimize your post
 6. **Review and post** your content
 
 **Features:**
@@ -335,6 +342,7 @@ Rücknahme anbieten.
 - ✅ **Professional formatting** - Bold, italic, code (if enabled)
 - ✅ **Hashtag integration** - Automatically adds relevant hashtags
 - ✅ **Call-to-action** - Encourages comments and engagement
+- ✅ **Ansprache-Form wählen** - Normaler Klick = "du", Longpress (2s) = "Sie"
 
 #### Comments & Replies
 1. **Navigate to any LinkedIn post or article**
@@ -342,7 +350,7 @@ Rücknahme anbieten.
 3. **Option A: Type your comment** (can be brief) - AI will optimize it in context of the post
 4. **Option B: Leave empty** - AI will generate a relevant response from the post/article context
 5. **Look for the floating "💎 Optimieren" button** (appears bottom-right when editor is focused)
-6. **Click the button** - AI will optimize or generate your comment
+6. **Click the button** (or **longpress for 2 seconds** for "Sie"-Form) - AI will optimize or generate your comment
 7. **Review and post** your comment
 
 **Features:**
@@ -357,6 +365,7 @@ Rücknahme anbieten.
 - ✅ **Value-focused** - Adds real insights, not generic fluff
 - ✅ **No hashtags** - Comments don't include hashtags
 - ✅ **No marketing-speak** - Authentic, human-like responses
+- ✅ **Ansprache-Form wählen** - Normaler Klick = "du", Longpress (2s) = "Sie" (Button wird rot bei Longpress)
 
 **Example Optimized Article:**
 ```
@@ -696,6 +705,9 @@ MIT License - see [LICENSE](LICENSE) file for details
 - **Review optimized content** before publishing
 - **Add personal stories** to make content authentic
 - **Engage with comments** - optimized comments drive discussions
+- **Wähle Ansprache-Form** - Normaler Klick = "du", Longpress (2 Sekunden) = "Sie"
+  - Button wird rot und zeigt "Sie-Form" bei Longpress
+  - Funktioniert für Artikel, Posts, Kommentare und Chat-Nachrichten
 
 ---
 
